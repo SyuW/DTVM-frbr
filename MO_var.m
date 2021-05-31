@@ -1,9 +1,10 @@
 
-dir_sic=dir(['*2005*.dat'])
+dir_sic=dir(['~/sic_data_2007/'])
 sic_mat = [];
 date_vec = [];
 
-for ifile=1:length(dir_sic)
+% Read data in from directory
+for ifile=3:length(dir_sic)
     fname=dir_sic(ifile).name;
     fdate=fname(15:22);
     fyear=fdate(1:4);
@@ -13,12 +14,14 @@ for ifile=1:length(dir_sic)
     t=datetime(fdate2,'InputFormat','yyyy-MM-dd');
     doy_tmp=day(t,'dayofyear');
     date_vec=[date_vec doy_tmp];
-    tmpdata=load(fname);
+    tmpdata=load(['~/sic_data_2007/' fname]);
     sic_day=tmpdata(:,3);
     sic_mat=[sic_mat sic_day];
 end
 
 window = 5;
+
+keyboard;
 
 time_series_doy=date_vec;
 days = date_vec;
@@ -71,4 +74,7 @@ for j=1:size(sic_mean_mat,1)
   if(mod(j,50)==0)
      keyboard;
   end
+end
+
+function [] = create_figure()
 end

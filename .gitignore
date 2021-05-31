@@ -1,0 +1,5 @@
+#  exclude files
+*.png
+*.dat
+*.gif
+*shape_files*

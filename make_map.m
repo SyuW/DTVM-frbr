@@ -1,9 +1,17 @@
-function [] = plot_map_and_graphs(points)
+plot_map_and_graphs()
 
-    figure;
+function [] = plot_map_and_graphs()
+
+    % Create remaining subplots
+    subplot(3,2,2);
+    subplot(3,2,4);
+    subplot(3,2,[5 6]);
+
+    % Create the map
+    subplot(3,2,[1 3]);
 
     axesm('mercator','MapLatLimit',[50 70],'MapLonLimit',[-100 -50]);
-    setm(gca,'mlabellocation',10,'plabellocation',5);
+    setm(gca,'mlabellocation',10,'plabellocation',5,'MLabelParallel','south');
 
     mlabel on;
     plabel on;
@@ -17,6 +25,7 @@ function [] = plot_map_and_graphs(points)
 
     setm(gca,'FFaceColor',OceanColor);
     geoshow(provinces,'FaceColor',LandColor);
-    saveas(gca, 'map.png');
+
+    saveas(gca, '~/scratch/MO_outputs/map.png');
 
 end

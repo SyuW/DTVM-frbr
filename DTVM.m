@@ -25,6 +25,13 @@ for ifile=3:length(dir_sic)
     sic_mat=[sic_mat sic_day];
 end
 
+% Binarizing the signal for mean, std deviation calculation
+cutoff = 0.15;
+if cutoff
+    disp('Binarizing the SIC signal before calculating mean and standard deviation');
+    sic = sic > cutoff;
+end
+
 days = date_vec;
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
 
@@ -112,7 +119,6 @@ function [MO] = DTVM(days, mat, num_of_thresholds, iqr_lim)
             end
         end
     end
-
     for loc=1:size(mat,1)
         MO_dates_at_loc = MO_index(loc,:);
         % Consider only dates that are not NaN
@@ -151,9 +157,9 @@ end
 
 % creating a time series of daily variance for every day in the series
 function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_window)
+
     sic_std_mat = [];
     sic_mean_mat = [];
-    threshold = 0.15 % Option for binarizing the signal
     sic_std= nan(size(date_vec));
     sic_mean= nan(size(date_vec));
     num_of_locations = size(sic,1);
@@ -162,7 +168,6 @@ function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_wi
         logical = ((date_vec(k)-date_vec)>-1 & (date_vec(k)-date_vec)<=calc_window-1);
         if (sum(logical)==calc_window)
             days_sic = sic(:,logical);
-            days_sic = days_sic > threshold;
             sic_std = std(days_sic');
             sic_mean = mean(days_sic');
             sic_std_mat = [sic_std_mat sic_std'];

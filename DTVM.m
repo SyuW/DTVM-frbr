@@ -26,24 +26,36 @@ for ifile=3:length(dir_sic)
 end
 
 % Binarizing the signal for mean, std deviation calculation
-cutoff = 0.15;
+% Set to zero if you don't want to binarize
+cutoff = 0;
 if cutoff
     disp('Binarizing the SIC signal before calculating mean and standard deviation');
-    sic = sic > cutoff;
+    sic_mat = sic_mat > cutoff;
 end
 
 days = date_vec;
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
 
-freezeup_days = find_breakup_freezeup_from_continuous_presence(sic_mat, days, 'Freeze-up');
-breakup_days = find_breakup_freezeup_from_continuous_presence(sic_mat, days, 'Breakup');
-MO_dates_DTVM = DTVM(days, sic_std_mat, num_of_thresholds, iqr_lim);
+freezeup_days = continuous_presence_breakup_freezeup(sic_mat, days, 'Freeze-up');
+breakup_days = continuous_presence_breakup_freezeup(sic_mat, days, 'Breakup');
+MO_dates_DTVM = DTVM_freezeup_breakup(days, sic_std_mat, num_of_thresholds, iqr_lim);
 
 matrices = {sic_mat sic_mean_mat sic_std_mat};
 flagged_dates_cells = {freezeup_days breakup_days MO_dates_DTVM};
 names = {'SIC' 'Mean SIC' 'SIC Std deviation'};
 
-choices = {[-85 60], [-80 65], [-90 62], [-80 52], [-70 63]};
+% Random coord sampling
+num_of_coords = 10;
+inds = randsample(size(coords,1), num_of_coords);
+for k = 1:num_of_coords
+    ind = inds(k);
+    coord = coords(ind,:);
+    choices{k} = coord;
+end
+
+%disp(choices); keyboard;
+% Hardcoded coord choices 
+%choices = {[-85 60], [-80 65], [-90 62], [-80 52], [-70 63], [-55 65], [-77 68]};
 %choices = {[-85 60]};
 
 for k = 1:length(choices)
@@ -53,25 +65,8 @@ for k = 1:length(choices)
     plot_ts_and_map(matrices,names,chosen_index,chosen_coord,date_vec,flagged_dates_cells);
 end
 
-%iqr_lim=20;
-%for j=1:size(sic_mean_mat,1)
-    %MO_index_nonan = MO_index(~isnan(MO_index(j,:)));
-%    MO_index_nonan = MO_index(~isnan(MO_index(j,:)));
-%    MO_index_nonan = MO_index(j,:);
-%    filter = MO_index_nonan > 61 & MO_index_nonan  <300; % 61 corresponds to AHRA algorithm
-%    MO_filter = MO_index_nonan(filter);
-%    inter_q(j) = iqr(MO_filter);
-%    MO(j) = quantile(MO_filter, 0.25);
-%    %hist_ratio = sum(MO_index(j,:) > 61 & MO_index(j,:)  <200)/sum(MO_index(j,:)  <200);
-%    %if inter_q > iqr_lim || hist_ratio <0.5
-%    %    MO(j) = nan;
-%    %end
-%    if(mod(j,50)==0)
-%        keyboard;
-%    end
-%end
 
-function [MO] = find_breakup_freezeup_from_continuous_presence(mat, days, day_type)
+function [MO] = continuous_presence_breakup_freezeup(mat, days, day_type)
     period = 15;
     threshold = 0.15;
     MO = nan(1,size(mat,1));
@@ -99,7 +94,7 @@ end
         
 
 % Dynamic Threshold Variability Method for flagging dates
-function [MO] = DTVM(days, mat, num_of_thresholds, iqr_lim)
+function [MO] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim)
     % Create the thresholds and identify dates based on the thresholds
     MO_index(1:size(mat,1),1:num_of_thresholds)=nan;
     % th = threshold, l = location, d = day
@@ -124,7 +119,7 @@ function [MO] = DTVM(days, mat, num_of_thresholds, iqr_lim)
         % Consider only dates that are not NaN
         MO_dates_at_loc = MO_dates_at_loc(~isnan(MO_dates_at_loc));
 
-        melt_range_start = 1; melt_range_end = 364;
+        melt_range_start = 60; melt_range_end = 250;
         dates_inside_melt_range = MO_dates_at_loc(MO_dates_at_loc > melt_range_start & MO_dates_at_loc < melt_range_end);
         %dates_before_melt_range = MO_dates_at_loc(MO_dates_at_loc < 61);
 
@@ -138,26 +133,8 @@ function [MO] = DTVM(days, mat, num_of_thresholds, iqr_lim)
 end
 
 
-function [MO_index] = old_MO_dates(days, sic_mean_mat)
-    %creating an array of possible melt onset dates based on different thresholds
-    rd = linspace(0, 1, 500); % 500 used thresholds
-    MO_index(1:size(sic_mean_mat,1),1:length(rd))=nan;
-    for factor = 1:length(rd);
-        acc_range = rd(factor);
-        for j = 1:size(sic_mean_mat,1)
-            for k = 1:size(sic_mean_mat,2)
-                if sic_mean_mat(j,k) < acc_range && isnan(MO_index(j,factor));
-                    MO_index(j,factor)=days(k);
-                end
-            end
-        end
-    end
-end
-
-
 % creating a time series of daily variance for every day in the series
 function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_window)
-
     sic_std_mat = [];
     sic_mean_mat = [];
     sic_std= nan(size(date_vec));
@@ -241,11 +218,13 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     geoshow(lat, lon, 'DisplayType','Point','Marker','x','Color','red');
     title(['SIC at (' num2str(lon) ',' num2str(lat) ')']);
 
-    save_fname = strcat('~/scratch/MO_outputs/plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
+    save_fname = strcat('~/scratch/MO_outputs/experiments/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
     saveas(ax4, save_fname);
     close;
-
 end
+
+
+
 
 
 % WIP for saving matrix to binary

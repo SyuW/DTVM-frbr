@@ -27,44 +27,48 @@ end
 
 % Binarizing the signal for mean, std deviation calculation
 % Set to zero if you don't want to binarize
-cutoff = 0;
+cutoff = 0.15;
 if cutoff
     disp('Binarizing the SIC signal before calculating mean and standard deviation');
     sic_mat = sic_mat > cutoff;
 end
 
-days = date_vec;
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
 
-freezeup_days = continuous_presence_breakup_freezeup(sic_mat, days, 'Freeze-up');
-breakup_days = continuous_presence_breakup_freezeup(sic_mat, days, 'Breakup');
-MO_dates_DTVM = DTVM_freezeup_breakup(days, sic_std_mat, num_of_thresholds, iqr_lim);
+freezeup_days = continuous_presence_breakup_freezeup(sic_mat, date_vec, 'Freeze-up');
+breakup_days = continuous_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
+dates_DTVM = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim, 0);
 
-matrices = {sic_mat sic_mean_mat sic_std_mat};
-flagged_dates_cells = {freezeup_days breakup_days MO_dates_DTVM};
-names = {'SIC' 'Mean SIC' 'SIC Std deviation'};
+flagged_dates_cells = {freezeup_days breakup_days dates_DTVM};
 
-% Random coord sampling
-num_of_coords = 10;
-inds = randsample(size(coords,1), num_of_coords);
-for k = 1:num_of_coords
-    ind = inds(k);
-    coord = coords(ind,:);
-    choices{k} = coord;
+% Create maps of breakup/freeze-up days
+plot_frbr_date_maps = 1;
+if plot_frbr_date_maps
+    names = {'NRC Freeze-up days','NRC Breakup days','DTVM Breakup days'};
+    create_frbr_dates_maps(flagged_dates_cells,names,coords);
 end
 
-%disp(choices); keyboard;
-% Hardcoded coord choices 
-%choices = {[-85 60], [-80 65], [-90 62], [-80 52], [-70 63], [-55 65], [-77 68]};
-%choices = {[-85 60]};
-
-for k = 1:length(choices)
-    choice = choices{k};
-    chosen_index = coord_to_closest_coords_index(coords, choice);
-    chosen_coord = coords(chosen_index,:);
-    plot_ts_and_map(matrices,names,chosen_index,chosen_coord,date_vec,flagged_dates_cells);
+% Plot time series for specific locations
+plot_ts_for_rand_pts = 0;
+if plot_ts_for_rand_pts
+    matrices = {sic_mat sic_mean_mat sic_std_mat};
+    names = {'SIC' 'Mean SIC' 'SIC Std deviation'};
+    % Random coord sampling
+    num_of_coords = 10;
+    inds = randsample(size(coords,1), num_of_coords);
+    for k = 1:num_of_coords
+        ind = inds(k);
+        coord = coords(ind,:);
+        choices{k} = coord;
+    end
+    % Plot
+    for k = 1:length(choices)
+        choice = choices{k};
+        chosen_index = coord_to_closest_coords_index(coords, choice);
+        chosen_coord = coords(chosen_index,:);
+        plot_ts_and_map(matrices,names,chosen_index,chosen_coord,date_vec,flagged_dates_cells);
+    end
 end
-
 
 function [MO] = continuous_presence_breakup_freezeup(mat, days, day_type)
     period = 15;
@@ -94,9 +98,15 @@ end
         
 
 % Dynamic Threshold Variability Method for flagging dates
-function [MO] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim)
+function [FRBR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, is_fr)
     % Create the thresholds and identify dates based on the thresholds
     MO_index(1:size(mat,1),1:num_of_thresholds)=nan;
+    if is_fr
+        mat = flip(mat,2);
+        days = flip(days);
+    else
+        % Do nothing
+    end
     % th = threshold, l = location, d = day
     for loc = 1:size(mat, 1)
         max_val = max(mat(loc,:));
@@ -125,9 +135,9 @@ function [MO] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim)
 
         %inter_q(loc) = iqr(dates_inside_melt_range)
         if ~isempty(dates_inside_melt_range)
-            MO(loc) = quantile(dates_inside_melt_range, 0.25);
+            FRBR(loc) = quantile(dates_inside_melt_range, 0.25);
         else
-            MO(loc) = nan;
+            FRBR(loc) = nan;
         end
     end
 end
@@ -178,8 +188,8 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     lon = location(1);
     lat = location(2);
 
-    colors = {'r', 'g', 'm'};
-    day_type_names = {"NRC Freeze-up", "NRC Breakup", "DTVM"};
+    colors = {'r', 'g', 'm', 'orange'};
+    day_type_names = {"NRC Freeze-up", "NRC Breakup", "DTVM Freeze-up", "DTVM Breakup"};
     figure;
     axs = [subplot(3,2,2) subplot(3,2,4) subplot(3,2, [5 6])];
     for k = 1:length(axs)
@@ -195,7 +205,7 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
         xlim(axs(k), [0 365]);
     end
 
-    legend(axs(3));
+    legend(axs(3),'Location','northwest');
 
     % Create map
     ax4 = subplot(3,2,[1 3]);
@@ -218,68 +228,25 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     geoshow(lat, lon, 'DisplayType','Point','Marker','x','Color','red');
     title(['SIC at (' num2str(lon) ',' num2str(lat) ')']);
 
-    save_fname = strcat('~/scratch/MO_outputs/experiments/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
+    save_fname = strcat('~/scratch/MO_outputs/plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
     saveas(ax4, save_fname);
     close;
 end
 
 
+function [] = create_frbr_dates_maps(frbr_cell_arr, names, coords_mat)
+    lons = coords_mat(:,1);
+    lats = coords_mat(:,2);
 
-
-
-% WIP for saving matrix to binary
-function [sic_mat, date_vec] = create_sic_mat(load_existing)
-    output_dir_str='~/scratch/MO_outputs/';
-    output_dir = dir('~/scratch/MO_outputs/');
-    mat_fname = "foo";
-    for ifile=1:length(output_dir)
-        fname = output_dir(ifile).name;
-        disp(fname);
-        C = strsplit(fname, '_');
-        if contains(fname, 'SIC_mat_')
-            mat_fname=fname;
-            mat_size = [str2num(C{3}) str2num(C{4})];
-        elseif contains(fname, 'found_days')
-            mat_fname=fname;
-            day_size = [str2num(C{3}) str2num(C{4})];
-            disp(C);
-        end
+    for k = 1:length(frbr_cell_arr)
+        frbr_dates_vec = frbr_cell_arr{k};
+        scatter(lons,lats,10,frbr_dates_vec,'filled');
+        colorbar;
+        title(names{k});
+        xlabel('Longitude');
+        ylabel('Latitude');
+        save_fname = strcat('~/scratch/MO_outputs/experiments/',names{k},'.png');
+        saveas(gca, save_fname);
     end
-
-    keyboard;
-
-    fid = fopen(mat_fname);
-    if fid == -1 | ~load_existing
-        dir_sic=dir(['~/sic_data_2007/']);
-        sic_mat = [];
-        date_vec = [];
-
-        % Read data in from directory
-        for ifile=3:length(dir_sic)
-            fname=dir_sic(ifile).name;
-            fdate=fname(15:22);
-            fyear=fdate(1:4);
-            fmonth=fdate(5:6);
-            fday=fdate(7:8);
-            fdate2=([ fyear '-' fmonth '-' fday]);
-            t=datetime(fdate2,'InputFormat','yyyy-MM-dd');
-            doy_tmp=day(t,'dayofyear');
-            date_vec=[date_vec doy_tmp];
-            %disp(['~/sic_data_2007/' fname])
-            tmpdata=load(['~/sic_data_2007/' fname]);
-            sic_day=tmpdata(:,3);
-            coords=tmpdata(:,[1 2]);
-            sic_mat=[sic_mat sic_day];
-        end
-        
-        sic_mat_size = size(sic_mat);
-        day_size = size(date_vec);
-
-        fname1 = strcat("~/scratch/MO_outputs/SIC_mat_",num2str(mat_size(1)),'_',num2str(mat_size(2)),'_.bin');
-        fname2 = strcat("~/scratch/MO_outputs/found_days_",num2str(day_size(1)),"_",num2str(day_size(2)),"_.bin");
-
-        save(fname1,'sic_mat');
-        save(fname2, 'date_vec');
-    end
+    close; 
 end
-

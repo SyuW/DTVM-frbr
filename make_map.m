@@ -2,6 +2,7 @@
 % NWT: [68 78] [-140 -110]
 
 shown_points = {[75 -119] [75 -132] [71 -119] [71 -132]};
+shown_points = {[71 -119] [71 -132]};
 plot_map_and_graphs([68 78], [-140 -110], shown_points);
 
 function [] = plot_map_and_graphs(region_lat_bounds, region_long_bounds, shown_points)

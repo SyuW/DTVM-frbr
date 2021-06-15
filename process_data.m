@@ -7,6 +7,8 @@ date_vec = [];
 % Read data in from directory
 for ifile=3:length(dir_sic)
     fname=dir_sic(ifile).name;
+    tmpdata=load(['~/sic_data_2007/' fname]);
+
     fdate=fname(15:22);
     fyear=fdate(1:4);
     fmonth=fdate(5:6);
@@ -14,21 +16,25 @@ for ifile=3:length(dir_sic)
     fdate2=([ fyear '-' fmonth '-' fday]);
     t=datetime(fdate2,'InputFormat','yyyy-MM-dd');
     doy_tmp=day(t,'dayofyear');
+    current_sic = tmpdata(:,3);
     date_vec=[date_vec doy_tmp];
     %disp(['~/sic_data_2007/' fname])
-    tmpdata=load(['~/sic_data_2007/' fname]);
-    sic_day=tmpdata(:,3);
     coords=tmpdata(:,[1 2]);
-    sic_mat=[sic_mat sic_day];
+    sic_mat=[sic_mat current_sic];
 end
 
-bin_sic = 0.15;
+% Linearly interpolate SIC signal
+sic_mat = interp1(date_vec, sic_mat', date_vec(1):date_vec(end))';
+date_vec = date_vec:date_vec(end);
 
 % Binarizing the signal for mean, std deviation calculation
 % Set to zero if you don't want to binarize
+bin_sic = 0.15;
 if bin_sic
     disp('Binarizing the SIC signal before calculating mean and standard deviation');
     sic_mat = sic_mat > bin_sic;
+else
+    disp('Continuing without binarizing');
 end
 
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);

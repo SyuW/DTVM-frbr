@@ -14,33 +14,36 @@ freezeup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Freeze-up'
 breakup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
 
 flagged_dates_cells = {freezeup_days_NRC,breakup_days_NRC,...
-                       freezeup_days_DTVM,breakup_days_DTVM,...
-                       breakup_days_DTVM-breakup_days_NRC,...
-                       freezeup_days_DTVM-freezeup_days_NRC};
+                       freezeup_days_DTVM,breakup_days_DTVM};
 
 % Create maps of breakup/freeze-up days
-plot_frbr_date_maps = 0;
+plot_frbr_date_maps = 1;
 if plot_frbr_date_maps
+    % Also plot the differences as maps
+    flagged_dates_cells{5} = breakup_days_DTVM-breakup_days_NRC;
+    flagged_dates_cells{6} = freezeup_days_DTVM-freezeup_days_NRC;
     names = {'NRC Freeze-up days','NRC Breakup days','DTVM Freeze-up days','DTVM Breakup days',...
              'DTVM-NRC Breakup Difference','DTVM-NRC Freeze-up Difference'};
     create_frbr_dates_maps(flagged_dates_cells,names,coords);
 end
 
-% Plot time series for specific locations
-plot_ts_for_rand_pts = 1;
+% Plot time series for randomly chosen locations
+plot_ts_for_rand_pts = 0;
 if plot_ts_for_rand_pts
+    flagged_dates_cells = {freezeup_days_NRC,breakup_days_NRC,...
+                           freezeup_days_DTVM,breakup_days_DTVM};
     matrices = {sic_mat sic_mean_mat sic_std_mat};
     names = {'SIC' 'Mean SIC' 'SIC Std deviation'};
+
     % Random coord sampling
-    num_of_coords = 10;
+    num_of_coords = 5;
     inds = randsample(size(coords,1), num_of_coords);
     for k = 1:num_of_coords
         ind = inds(k);
         coord = coords(ind,:);
         choices{k} = coord;
     end
-    % Plot
-    choices = {[-55 60],[-55 62]};
+    % Plot for coordinate choices
     for k = 1:length(choices)
         choice = choices{k};
         chosen_index = coord_to_closest_coords_index(coords, choice);
@@ -48,6 +51,11 @@ if plot_ts_for_rand_pts
         plot_ts_and_map(matrices,names,chosen_index,chosen_coord,date_vec,flagged_dates_cells);
     end
 end
+
+plot_ts_for_region = 0;
+if plot_ts_for_region
+    lat_bounds = [52 65]; lon_bounds = [-50 -60];
+    
 
 
 function [day_of_interest] = cts_presence_breakup_freezeup(mat, days, day_type)
@@ -79,6 +87,9 @@ end
 
 % Dynamic Threshold Variability Method for flagging dates
 function [FR,BR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, is_fr)
+    br_range = [60 250];
+    fr_range = [245 365];
+
     % Create the thresholds and identify dates based on the thresholds
     BR_index(1:size(mat,1),1:num_of_thresholds)=nan;
     FR_index(1:size(mat,1),1:num_of_thresholds)=nan;
@@ -91,9 +102,9 @@ function [FR,BR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, 
             threshold = thresholds_vec(th);
             if isnan(BR_index(loc, th));
                 % Iterate over days to find when threshold exceeded
-                for d = 1:size(mat, 2)-1
+                for d = br_range(1):days(end)-1
                     threshold_exceeded = (mat(loc,d) >= threshold) ||...
-                                         (mat(loc,d) < threshold & mat(loc,d+1) > threshold);
+                                         (mat(loc,d) > threshold & mat(loc,d+1) < threshold);
                     if threshold_exceeded
                         BR_index(loc,th)=days(d);
                         break
@@ -103,18 +114,20 @@ function [FR,BR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, 
         end
         BR_dates_at_loc = BR_index(loc,:);
         BR_dates_at_loc = BR_dates_at_loc(~isnan(BR_dates_at_loc));
-        br_range = [60 250];
+        
         dates_inside_breakup_range = BR_dates_at_loc(BR_dates_at_loc > br_range(1) & BR_dates_at_loc < br_range(2));
         if ~isempty(dates_inside_breakup_range)
-            BR(loc) = quantile(dates_inside_breakup_range, 0.25);
+            % Use 75th percentile for breakup to favor later days
+            BR(loc) = quantile(dates_inside_breakup_range, 0.75);
         else
-            BR(loc) = nan;
+            % Set the breakup day to beginning of season
+            BR(loc) = br_range(1);
         end
 
         for th=1:length(thresholds_vec)
             if isnan(FR_index(loc, th));
-                % Iterate over days starting from previously found breakup day to find when threshold exceeded
-                for df = size(mat, 2):-1:2
+                % Iterate over days starting from freeze-up season start
+                for df = days(end):-1:2
                     threshold_exceeded = (mat(loc,df) >= threshold) ||...
                                          (mat(loc,df) > threshold & mat(loc,df-1) < threshold);
                     if threshold_exceeded
@@ -127,10 +140,10 @@ function [FR,BR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, 
 
         FR_dates_at_loc = FR_index(loc,:);
         FR_dates_at_loc = FR_dates_at_loc(~isnan(FR_dates_at_loc));
-        fr_range = [1 365];
         dates_inside_freezeup_range = FR_dates_at_loc(FR_dates_at_loc > fr_range(1) & FR_dates_at_loc < fr_range(2));
         if ~isempty(dates_inside_freezeup_range)
-            FR(loc) = quantile(dates_inside_freezeup_range, 0.75);
+            % Use 25th percentile for freeze-up to favor earlier days 
+            FR(loc) = quantile(dates_inside_freezeup_range, 0.25);
         else
             FR(loc) = nan;
         end
@@ -213,6 +226,9 @@ function [] = create_frbr_dates_maps(frbr_cell_arr, names, coords_mat)
         colorbar;
         if k <= 4
             caxis([0 365]);
+        else
+            colormap(jet);
+            caxis([-100 100]);
         end
         title(names{k});
         xlabel('Longitude');

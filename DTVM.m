@@ -1,55 +1,33 @@
+% sic_mat, sic_mean_mat, sic_std_mat
+% date_vec, coords
+
+load('~/scratch/dtvm_outputs/out/calc_mats')
+
 % Controllable parameters
-calc_window = 5;
 num_of_thresholds = 500;
 iqr_lim = 20;
+% Calculate freeze-up/breakup days using the DTVM method
+[freezeup_days_DTVM breakup_days_DTVM] = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim);
 
-dir_sic=dir(['~/sic_data_2007/']);
-sic_mat = [];
-date_vec = [];
+% Calculate freeze-up/breakup days using the NRC method
+freezeup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Freeze-up');
+breakup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
 
-% Read data in from directory
-for ifile=3:length(dir_sic)
-    fname=dir_sic(ifile).name;
-    fdate=fname(15:22);
-    fyear=fdate(1:4);
-    fmonth=fdate(5:6);
-    fday=fdate(7:8);
-    fdate2=([ fyear '-' fmonth '-' fday]);
-    t=datetime(fdate2,'InputFormat','yyyy-MM-dd');
-    doy_tmp=day(t,'dayofyear');
-    date_vec=[date_vec doy_tmp];
-    %disp(['~/sic_data_2007/' fname])
-    tmpdata=load(['~/sic_data_2007/' fname]);
-    sic_day=tmpdata(:,3);
-    coords=tmpdata(:,[1 2]);
-    sic_mat=[sic_mat sic_day];
-end
-
-% Binarizing the signal for mean, std deviation calculation
-% Set to zero if you don't want to binarize
-cutoff = 0.15;
-if cutoff
-    disp('Binarizing the SIC signal before calculating mean and standard deviation');
-    sic_mat = sic_mat > cutoff;
-end
-
-[sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
-
-freezeup_days = continuous_presence_breakup_freezeup(sic_mat, date_vec, 'Freeze-up');
-breakup_days = continuous_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
-dates_DTVM = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim, 0);
-
-flagged_dates_cells = {freezeup_days breakup_days dates_DTVM};
+flagged_dates_cells = {freezeup_days_NRC,breakup_days_NRC,...
+                       freezeup_days_DTVM,breakup_days_DTVM,...
+                       breakup_days_DTVM-breakup_days_NRC,...
+                       freezeup_days_DTVM-freezeup_days_NRC};
 
 % Create maps of breakup/freeze-up days
-plot_frbr_date_maps = 1;
+plot_frbr_date_maps = 0;
 if plot_frbr_date_maps
-    names = {'NRC Freeze-up days','NRC Breakup days','DTVM Breakup days'};
+    names = {'NRC Freeze-up days','NRC Breakup days','DTVM Freeze-up days','DTVM Breakup days',...
+             'DTVM-NRC Breakup Difference','DTVM-NRC Freeze-up Difference'};
     create_frbr_dates_maps(flagged_dates_cells,names,coords);
 end
 
 % Plot time series for specific locations
-plot_ts_for_rand_pts = 0;
+plot_ts_for_rand_pts = 1;
 if plot_ts_for_rand_pts
     matrices = {sic_mat sic_mean_mat sic_std_mat};
     names = {'SIC' 'Mean SIC' 'SIC Std deviation'};
@@ -62,6 +40,7 @@ if plot_ts_for_rand_pts
         choices{k} = coord;
     end
     % Plot
+    choices = {[-55 60],[-55 62]};
     for k = 1:length(choices)
         choice = choices{k};
         chosen_index = coord_to_closest_coords_index(coords, choice);
@@ -70,10 +49,11 @@ if plot_ts_for_rand_pts
     end
 end
 
-function [MO] = continuous_presence_breakup_freezeup(mat, days, day_type)
+
+function [day_of_interest] = cts_presence_breakup_freezeup(mat, days, day_type)
     period = 15;
     threshold = 0.15;
-    MO = nan(1,size(mat,1));
+    day_of_interest = nan(1,size(mat,1));
     if day_type == "Freeze-up"
         mat = mat > threshold;
         season_start_end = [245 length(days)];
@@ -88,83 +68,73 @@ function [MO] = continuous_presence_breakup_freezeup(mat, days, day_type)
         for d = 1:length(days)-period+1
             if season_start_end(1) < days(d) && days(d) < season_start_end(2)
                 if sum(binarized_signal_at_loc(d:d+period-1))==period
-                    MO(loc) = days(d);
+                    day_of_interest(loc) = days(d);
                     break
                 end
             end
         end
     end
 end
-        
+       
 
 % Dynamic Threshold Variability Method for flagging dates
-function [FRBR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, is_fr)
+function [FR,BR] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, is_fr)
     % Create the thresholds and identify dates based on the thresholds
-    MO_index(1:size(mat,1),1:num_of_thresholds)=nan;
-    if is_fr
-        mat = flip(mat,2);
-        days = flip(days);
-    else
-        % Do nothing
-    end
+    BR_index(1:size(mat,1),1:num_of_thresholds)=nan;
+    FR_index(1:size(mat,1),1:num_of_thresholds)=nan;
     % th = threshold, l = location, d = day
+    % First calculate possible breakup days
     for loc = 1:size(mat, 1)
         max_val = max(mat(loc,:));
         thresholds_vec = linspace(0, max_val, num_of_thresholds);
         for th = 1:length(thresholds_vec)
             threshold = thresholds_vec(th);
-            if isnan(MO_index(loc, th));
+            if isnan(BR_index(loc, th));
+                % Iterate over days to find when threshold exceeded
                 for d = 1:size(mat, 2)-1
-                    threshold_exceeded = (mat(loc,d) >= threshold) | (mat(loc,d) < threshold & mat(loc,d+1) > threshold);
+                    threshold_exceeded = (mat(loc,d) >= threshold) ||...
+                                         (mat(loc,d) < threshold & mat(loc,d+1) > threshold);
                     if threshold_exceeded
-                        MO_index(loc,th)=days(d);
+                        BR_index(loc,th)=days(d);
                         break
                     end
                 end
             end
         end
-    end
-    for loc=1:size(mat,1)
-        MO_dates_at_loc = MO_index(loc,:);
-        % Consider only dates that are not NaN
-        MO_dates_at_loc = MO_dates_at_loc(~isnan(MO_dates_at_loc));
-
-        melt_range_start = 60; melt_range_end = 250;
-        dates_inside_melt_range = MO_dates_at_loc(MO_dates_at_loc > melt_range_start & MO_dates_at_loc < melt_range_end);
-        %dates_before_melt_range = MO_dates_at_loc(MO_dates_at_loc < 61);
-
-        %inter_q(loc) = iqr(dates_inside_melt_range)
-        if ~isempty(dates_inside_melt_range)
-            FRBR(loc) = quantile(dates_inside_melt_range, 0.25);
+        BR_dates_at_loc = BR_index(loc,:);
+        BR_dates_at_loc = BR_dates_at_loc(~isnan(BR_dates_at_loc));
+        br_range = [60 250];
+        dates_inside_breakup_range = BR_dates_at_loc(BR_dates_at_loc > br_range(1) & BR_dates_at_loc < br_range(2));
+        if ~isempty(dates_inside_breakup_range)
+            BR(loc) = quantile(dates_inside_breakup_range, 0.25);
         else
-            FRBR(loc) = nan;
+            BR(loc) = nan;
+        end
+
+        for th=1:length(thresholds_vec)
+            if isnan(FR_index(loc, th));
+                % Iterate over days starting from previously found breakup day to find when threshold exceeded
+                for df = size(mat, 2):-1:2
+                    threshold_exceeded = (mat(loc,df) >= threshold) ||...
+                                         (mat(loc,df) > threshold & mat(loc,df-1) < threshold);
+                    if threshold_exceeded
+                        FR_index(loc,th)=days(df);
+                        break
+                    end
+                end
+            end
+        end
+
+        FR_dates_at_loc = FR_index(loc,:);
+        FR_dates_at_loc = FR_dates_at_loc(~isnan(FR_dates_at_loc));
+        fr_range = [1 365];
+        dates_inside_freezeup_range = FR_dates_at_loc(FR_dates_at_loc > fr_range(1) & FR_dates_at_loc < fr_range(2));
+        if ~isempty(dates_inside_freezeup_range)
+            FR(loc) = quantile(dates_inside_freezeup_range, 0.75);
+        else
+            FR(loc) = nan;
         end
     end
-end
-
-
-% creating a time series of daily variance for every day in the series
-function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_window)
-    sic_std_mat = [];
-    sic_mean_mat = [];
-    sic_std= nan(size(date_vec));
-    sic_mean= nan(size(date_vec));
-    num_of_locations = size(sic,1);
-    for k = 1:length(date_vec);
-        % Select only the current day and previous (window-1) days
-        logical = ((date_vec(k)-date_vec)>-1 & (date_vec(k)-date_vec)<=calc_window-1);
-        if (sum(logical)==calc_window)
-            days_sic = sic(:,logical);
-            sic_std = std(days_sic');
-            sic_mean = mean(days_sic');
-            sic_std_mat = [sic_std_mat sic_std'];
-            sic_mean_mat = [sic_mean_mat sic_mean'];
-        else
-            sic_std_mat = [sic_std_mat nan(num_of_locations, 1)];
-            sic_mean_mat = [sic_mean_mat nan(num_of_locations, 1)];
-        end
-    end
-    %keyboard;
 end
 
 
@@ -188,16 +158,16 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     lon = location(1);
     lat = location(2);
 
-    colors = {'r', 'g', 'm', 'orange'};
+    colors = {'r', 'g', 'y', 'm'};
     day_type_names = {"NRC Freeze-up", "NRC Breakup", "DTVM Freeze-up", "DTVM Breakup"};
     figure;
     axs = [subplot(3,2,2) subplot(3,2,4) subplot(3,2, [5 6])];
     for k = 1:length(axs)
         hold(axs(k),'on');
         for a = 1:length(dates_cells)
-            MO_date = dates_cells{a}(loc_index);
-            if ~isnan(MO_date)
-                plot(axs(k),[MO_date MO_date],[0 1],'Color',colors{a},'DisplayName',day_type_names{a});
+            found_date = dates_cells{a}(loc_index);
+            if ~isnan(found_date)
+                plot(axs(k),[found_date found_date],[0 1],'Color',colors{a},'DisplayName',day_type_names{a});
             end
         end
         plot(axs(k), days, mats{k}(loc_index,:),'Color','b','DisplayName','Signal');
@@ -228,7 +198,7 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     geoshow(lat, lon, 'DisplayType','Point','Marker','x','Color','red');
     title(['SIC at (' num2str(lon) ',' num2str(lat) ')']);
 
-    save_fname = strcat('~/scratch/MO_outputs/plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
+    save_fname = strcat('~/scratch/dtvm_outputs/plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
     saveas(ax4, save_fname);
     close;
 end
@@ -239,13 +209,15 @@ function [] = create_frbr_dates_maps(frbr_cell_arr, names, coords_mat)
     lats = coords_mat(:,2);
 
     for k = 1:length(frbr_cell_arr)
-        frbr_dates_vec = frbr_cell_arr{k};
-        scatter(lons,lats,10,frbr_dates_vec,'filled');
+        scatter(lons,lats,10,frbr_cell_arr{k},'filled');
         colorbar;
+        if k <= 4
+            caxis([0 365]);
+        end
         title(names{k});
         xlabel('Longitude');
         ylabel('Latitude');
-        save_fname = strcat('~/scratch/MO_outputs/experiments/',names{k},'.png');
+        save_fname = strcat('~/scratch/dtvm_outputs/experiments/',names{k},'.png');
         saveas(gca, save_fname);
     end
     close; 

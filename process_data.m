@@ -28,21 +28,38 @@ sic_mat = interp1(date_vec, sic_mat', date_vec(1):date_vec(end))';
 date_vec = date_vec:date_vec(end);
 
 mats_savename = '~/scratch/dtvm_outputs/out/calc_mats';
-% Binarizing the signal for mean, std deviation calculation
-% Set to zero if you don't want to binarize
 
-bin_sic = 0;
+% Apply a median filter before binarization
+remove_fluctuations_before_bin = 0;
+filter_order = 3;
+if remove_fluctuations_before_bin
+    disp('Removing short term fluctuations in SIC signal before binarization');
+    for loc = 1:size(sic_mat, 1)
+        sic_mat(loc,:) = medfilt1(double(sic_mat(loc,:)), filter_order, 'truncate');
+    end
+    mats_savename = strcat(mats_savename, '_filtered');
+end
+
+% Binarizing the signal for mean, std deviation calculation
+bin_sic = 1;
+sic_threshold = 0.15;
 if bin_sic
     disp('Binarizing the SIC signal before calculating mean and standard deviation');
-    sic_mat = sic_mat > bin_sic;
+    sic_mat = sic_mat > sic_threshold;
     mats_savename = strcat(mats_savename, '_bin_sic');
-
-    remove_fluctuations = 1;
-    if remove_fluctuations
-        disp('Removing short term fluctuations in SIC signal - TODO');
-    end
 else
     disp('Continuing without binarizing');
+end
+
+% Apply a median filter after binarization
+remove_fluctuations_after_bin = 1;
+filter_order = 3;
+if remove_fluctuations_after_bin
+    disp('Removing short term fluctuations in SIC signal after binarization');
+    for loc = 1:size(sic_mat, 1)
+        sic_mat(loc,:) = medfilt1(double(sic_mat(loc,:)), filter_order, 'truncate');
+    end
+    mats_savename = strcat(mats_savename, '_filtered');
 end
 
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
@@ -62,6 +79,7 @@ if bin_std
 end
 
 save(mats_savename,'sic_mat','sic_std_mat','sic_mean_mat','date_vec','coords');
+clearvars;
 
 % creating a time series of daily variance for every day in the series
 function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_window)

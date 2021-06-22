@@ -1,14 +1,23 @@
-% sic_mat, sic_mean_mat, sic_std_mat
-% date_vec, coords
+global output_directory
+output_directory = '~/scratch/dtvm_outputs/'
 
 use_binarized = 1;
+filtered_after = 1;
+
 if use_binarized
-    disp('Using the binarized SIC signal');
-    load('~/scratch/dtvm_outputs/out/calc_mats_bin_sic');
+    msg='Using the binarized SIC signal';
+    load_fname='~/scratch/dtvm_outputs/out/calc_mats_bin_sic';
+    if filtered_after
+        msg='Using the binarized + filtered SIC signal';
+        load_fname='~/scratch/dtvm_outputs/out/calc_mats_bin_sic_filtered.mat';
+    end
 else
-    disp('Using the unbinarized SIC signal')
-    load('~/scratch/dtvm_outputs/out/calc_mats');
+    msg='Using the unprocessed SIC signal'
+    load_fname='~/scratch/dtvm_outputs/out/calc_mats';
 end
+
+% load variables {sic_mat, sic_mean_mat, sic_std_mat, date_vec, coords} to workspace
+load(load_fname);
 
 % Controllable parameters
 num_of_thresholds = 500;

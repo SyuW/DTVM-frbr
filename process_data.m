@@ -27,12 +27,20 @@ end
 sic_mat = interp1(date_vec, sic_mat', date_vec(1):date_vec(end))';
 date_vec = date_vec:date_vec(end);
 
+mats_savename = '~/scratch/dtvm_outputs/out/calc_mats';
 % Binarizing the signal for mean, std deviation calculation
 % Set to zero if you don't want to binarize
-bin_sic = 0.15;
+
+bin_sic = 0;
 if bin_sic
     disp('Binarizing the SIC signal before calculating mean and standard deviation');
     sic_mat = sic_mat > bin_sic;
+    mats_savename = strcat(mats_savename, '_bin_sic');
+
+    remove_fluctuations = 1;
+    if remove_fluctuations
+        disp('Removing short term fluctuations in SIC signal - TODO');
+    end
 else
     disp('Continuing without binarizing');
 end
@@ -42,14 +50,18 @@ end
 bin_mean = 0; 
 if bin_mean
     sic_mean_mat = sic_mean_mat > bin_mean;
+    mats_savename = strcat(mats_savename, '_mean');
+    disp('Binarizing the mean SIC signal');
 end
 
 bin_std = 0;
 if bin_std
     sic_std_mat = sic_std_mat > bin_std;
+    mats_savename = strcat(mats_savename, '_std')
+    disp('Binarizing the std SIC signal');
 end
 
-save('~/scratch/dtvm_outputs/out/calc_mats','sic_mat','sic_std_mat','sic_mean_mat','date_vec','coords');
+save(mats_savename,'sic_mat','sic_std_mat','sic_mean_mat','date_vec','coords');
 
 % creating a time series of daily variance for every day in the series
 function [sic_std_mat,sic_mean_mat] = create_mean_and_std(date_vec, sic, calc_window)

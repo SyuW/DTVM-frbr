@@ -1,3 +1,6 @@
+global output_directory
+output_directory = '~/scratch/dtvm_outputs/';
+
 calc_window = 5;
 
 dir_sic=dir(['~/sic_data_2007/']);
@@ -27,7 +30,7 @@ end
 sic_mat = interp1(date_vec, sic_mat', date_vec(1):date_vec(end))';
 date_vec = date_vec:date_vec(end);
 
-mats_savename = '~/scratch/dtvm_outputs/out/calc_mats';
+mats_savename = strcat(output_directory,'out/calc_mats');
 
 % Apply a median filter before binarization
 remove_fluctuations_before_bin = 0;
@@ -64,6 +67,7 @@ end
 
 [sic_std_mat, sic_mean_mat] = create_mean_and_std(date_vec,sic_mat,calc_window);
 
+% Binarize mean
 bin_mean = 0; 
 if bin_mean
     sic_mean_mat = sic_mean_mat > bin_mean;
@@ -71,6 +75,7 @@ if bin_mean
     disp('Binarizing the mean SIC signal');
 end
 
+% Binarize std deviation
 bin_std = 0;
 if bin_std
     sic_std_mat = sic_std_mat > bin_std;
@@ -78,6 +83,7 @@ if bin_std
     disp('Binarizing the std SIC signal');
 end
 
+disp(strcat('Writing workspace variables to ',mats_savename))
 save(mats_savename,'sic_mat','sic_std_mat','sic_mean_mat','date_vec','coords');
 clearvars;
 

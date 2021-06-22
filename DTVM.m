@@ -1,33 +1,35 @@
-global output_directory
-output_directory = '~/scratch/dtvm_outputs/'
+global output_directory;
+output_directory = '~/scratch/dtvm_outputs/';
 
 use_binarized = 1;
 filtered_after = 1;
 
 if use_binarized
     msg='Using the binarized SIC signal';
-    load_fname='~/scratch/dtvm_outputs/out/calc_mats_bin_sic';
+    load_fname=strcat(output_directory,'/out/calc_mats_bin_sic');
     if filtered_after
         msg='Using the binarized + filtered SIC signal';
-        load_fname='~/scratch/dtvm_outputs/out/calc_mats_bin_sic_filtered.mat';
+        load_fname=strcat(output_directory,'/out/calc_mats_bin_sic_filtered');
     end
 else
     msg='Using the unprocessed SIC signal'
-    load_fname='~/scratch/dtvm_outputs/out/calc_mats';
+    load_fname=strcat(output_directory,'/out/calc_mats');
 end
 
 % load variables {sic_mat, sic_mean_mat, sic_std_mat, date_vec, coords} to workspace
+disp(msg);
 load(load_fname);
 
 % Controllable parameters
 num_of_thresholds = 500;
 iqr_lim = 20;
-% Calculate freeze-up/breakup days using the DTVM method
-[freezeup_days_DTVM breakup_days_DTVM BR_index FR_index] = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim);
 
 % Calculate freeze-up/breakup days using the NRC method
 freezeup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Freeze-up');
 breakup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
+
+% Calculate freeze-up/breakup days using the DTVM method
+[freezeup_days_DTVM breakup_days_DTVM BR_index FR_index] = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim);
 
 %%%%%% Create maps of breakup/freeze-up days %%%%%%
 plot_frbr_date_maps = 1;
@@ -78,8 +80,8 @@ plot_ts_for_region = 1;
 is_breakup = 1;
 created = 0;
 creation_limit = 3;
-day_difference_cutoff = 50;
-lat_bounds = [52 65]; lon_bounds = [-60 -50];
+day_difference_cutoff = 100;
+lat_bounds = [63 67]; lon_bounds = [-60 -55];
 if plot_ts_for_region
     if is_breakup
         diffs = breakup_days_DTVM-breakup_days_NRC;
@@ -153,7 +155,7 @@ end
 
 % Dynamic Threshold Variability Method algorithm for flagging freeze-up/breakup dates
 function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(days, mat, num_of_thresholds, iqr_lim, is_fr)
-    br_range = [60 250];
+    br_range = [60 306];
     fr_range = [245 365];
 
     % Create the thresholds and identify dates based on the thresholds
@@ -170,7 +172,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(days, mat, num_of_thr
             threshold = thresholds_vec(th);
             if isnan(BR_index(loc, th));
                 % Iterate over days to find when threshold exceeded
-                for d = 1:days(end)-1
+                for d = 60:days(end)-1
                     threshold_exceeded = (mat(loc,d) >= threshold) ||...
                                          (mat(loc,d) > threshold & mat(loc,d+1) < threshold);
                     if threshold_exceeded
@@ -242,6 +244,8 @@ end
 
 
 function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cells, spurious)
+    global output_directory;
+
     lon = location(1);
     lat = location(2);
 
@@ -262,7 +266,7 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
         xlim(axs(k), [0 365]);
     end
 
-    legend(axs(3),'Location','northwest');
+    legend(axs(3),'Location','best');
 
     % Create map
     ax4 = subplot(3,2,[1 3]);
@@ -286,9 +290,9 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     title(['SIC at (' num2str(lon) ',' num2str(lat) ')']);
 
     if spurious
-        save_fname = strcat('~/scratch/dtvm_outputs/plots/', 'spurious_point_plot_at_',num2str(lon), '_', num2str(lat),'.png');
+        save_fname = strcat(output_directory,'plots/', 'spurious_point_plot_at_',num2str(lon), '_', num2str(lat),'.png');
     else
-        save_fname = strcat('~/scratch/dtvm_outputs/plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
+        save_fname = strcat(output_directory,'plots/', 'plot_at_',num2str(lon), '_', num2str(lat),'.png');
     end
 
     saveas(ax4, save_fname);
@@ -297,6 +301,8 @@ end
 
 
 function [] = create_frbr_dates_maps(frbr_cell_arr, names, coords_mat)
+    global output_directory;
+
     lons = coords_mat(:,1);
     lats = coords_mat(:,2);
 
@@ -312,7 +318,7 @@ function [] = create_frbr_dates_maps(frbr_cell_arr, names, coords_mat)
         title(names{k});
         xlabel('Longitude');
         ylabel('Latitude');
-        save_fname = strcat('~/scratch/dtvm_outputs/maps/',names{k},'.png');
+        save_fname = strcat(output_directory,'maps/',names{k},'.png');
         saveas(gca, save_fname);
     end
     close all; 
@@ -320,29 +326,38 @@ end
 
 
 function [] = plot_histogram(X, location, is_breakup)
+    global output_directory;
+
     lon = location(1);
     lat = location(2);
-    br_range = [60 250];
+    br_range = [60 306];
     fr_range = [245 365];
 
     if is_breakup
         day_type_str = 'Breakup';
         X = X(X > br_range(1) & X < br_range(2));
-        flagged_date = quantile(X, 0.75);
+        if ~isempty(X)
+            flagged_date = quantile(X, 0.75);
+        else
+            flagged_date = br_range(1);
+        end
     else
         day_type_str = 'Freezeup';
         X = X(X > fr_range(1) & X < fr_range(2));
-        flagged_date = quantile(X, 0.25);
+        if ~isempty(X)
+            flagged_date = quantile(X, 0.25);
+        else
+            flagged_date = fr_range(2);
+        end
     end
 
-    edges = 1:365;
-    histogram(X, edges, 'Normalization', 'probability');
+    histogram(X, 1:365, 'Normalization', 'probability');
     hold on;
     plot(gca,[flagged_date flagged_date],[0 1]);
 
     fig_title = strcat(day_type_str,' histogram',' at',' (',num2str(lon),',',num2str(lat),')');
     title(fig_title);
-    save_fname = strcat('~/scratch/dtvm_outputs/histograms/',day_type_str,'_histogram','_at',num2str(lon),'_',num2str(lat),'.png');
+    save_fname = strcat(output_directory,'histograms/',day_type_str,'_histogram','_at',num2str(lon),'_',num2str(lat),'.png');
 
     xlabel('Day of year');
     ylabel('Normalized frequency');

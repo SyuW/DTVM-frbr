@@ -1,8 +1,8 @@
 global output_directory;
 output_directory = '~/scratch/dtvm_outputs/';
 
-use_binarized = 0;
-filtered_after = 0;
+use_binarized = 1;
+filtered_after = 1;
 
 if use_binarized
     msg='Using the binarized SIC signal';
@@ -79,7 +79,13 @@ regions = {{[51 55], [-83 -78]},... % James Bay
            {[64 70], [-85 -75]},... % Foxe Basin
            {[58 65], [-77 -66]},... % Hudson Strait
            {[63 70], [-65 -50]},... % Baffin Sea
-           {[50 62], [-64 -50]}}    % East Coast
+           {[50 62], [-64 -50]}};   % East Coast
+
+custom_region = {[-64 -56] [54 60]}
+region = custom_region %regions{6};
+
+lat_bounds = region{1};
+lon_bounds = region{2};
 
 %%%%% Plot time-series and histograms for 'spurious points' %%%%%
 plot_ts_for_region = 1;
@@ -88,19 +94,27 @@ is_breakup = 1;
 created = 0;
 creation_limit = 3;
 day_difference_cutoff = 80;
-lat_bounds = [63 67]; lon_bounds = [-60 -55];
+
+s = RandStream('mlfg6331_64');
+inds = randsample(s,length(coords),length(coords));
+
 if plot_ts_for_region
     for k = 1:length(coords)
-        coord = coords(k,:);
+        ind = inds(k);
+        coord = coords(ind,:);
         % Determine if location falls within bounds of region of interest
         if coord(1) > lon_bounds(1) && coord(1) < lon_bounds(2)...
         && coord(2) > lat_bounds(1) && coord(2) < lat_bounds(2)
         
             if is_breakup
-                day_diff = (breakup_days_DTVM-breakup_days_NRC)(k);
+                dtvm_day = breakup_days_DTVM(k);
+                nrc_day = breakup_days_NRC(k);
             else
-                day_diff = (freezeup_days_DTVM-freezeup_days_NRC)(k);
+                dtvm_day = freezeup_days_DTVM(k);
+                nrc_day = freezeup_days_NRC(k);
             end
+
+            day_diff = dtvm_day - nrc_day;
 
             if ~isnan(day_diff)
                 if abs(day_diff) > day_difference_cutoff
@@ -130,8 +144,8 @@ if plot_ts_for_region
     disp('Done plotting time-series for spurious points and generating histograms');
 end
 
-% Clear variables to conserve memory
-clearvars;
+% Clear everything to conserve memory
+clear;
 
 function [day_of_interest] = cts_presence_breakup_freezeup(mat, days, day_type)
     period = 15;
@@ -368,6 +382,11 @@ function [] = plot_histogram(X, location, is_breakup)
 
     xlabel('Day of year');
     ylabel('Normalized frequency');
+
+    padding=10;
+    if ~isnan(X)
+        xlim([min(X)-padding max(X)+padding]);
+    end
     ylim([0 1]);
 
     saveas(gca, save_fname);

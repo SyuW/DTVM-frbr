@@ -1,8 +1,8 @@
 global output_directory;
 output_directory = '~/scratch/dtvm_outputs/';
 
-use_binarized = 1;
-filtered_after = 1;
+use_binarized = 0;
+filtered_after = 0;
 
 if use_binarized
     msg='Using the binarized SIC signal';
@@ -32,7 +32,7 @@ breakup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
 [freezeup_days_DTVM breakup_days_DTVM BR_index FR_index] = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim);
 
 %%%%%% Create maps of breakup/freeze-up days %%%%%%
-plot_frbr_date_maps = 1;
+plot_frbr_date_maps = 0;
 if plot_frbr_date_maps
     % Also plot the differences as maps
     names = {'NRC Freeze-up days','NRC Breakup days','DTVM Freeze-up days','DTVM Breakup days',...
@@ -73,6 +73,13 @@ if plot_ts_for_rand_pts
     end
     disp('Done plotting time-series for random points');
 end
+          %Lat_bounds Lon_bounds
+regions = {{[51 55], [-83 -78]},... % James Bay
+           {[55 64], [-96 -77]},... % Hudson Bay
+           {[64 70], [-85 -75]},... % Foxe Basin
+           {[58 65], [-77 -66]},... % Hudson Strait
+           {[63 70], [-65 -50]},... % Baffin Sea
+           {[50 62], [-64 -50]}}    % East Coast
 
 %%%%% Plot time-series and histograms for 'spurious points' %%%%%
 plot_ts_for_region = 1;
@@ -80,25 +87,21 @@ plot_ts_for_region = 1;
 is_breakup = 1;
 created = 0;
 creation_limit = 3;
-day_difference_cutoff = 100;
+day_difference_cutoff = 80;
 lat_bounds = [63 67]; lon_bounds = [-60 -55];
 if plot_ts_for_region
-    if is_breakup
-        diffs = breakup_days_DTVM-breakup_days_NRC;
-        freezeup_or_breakup_index = BR_index;
-    else
-        diffs = freezeup_days_DTVM-freezeup_days_NRC;
-        freezeup_or_breakup_index = FR_index;
-    end
-
-    clearvars FR_index BR_index;
-
     for k = 1:length(coords)
         coord = coords(k,:);
         % Determine if location falls within bounds of region of interest
         if coord(1) > lon_bounds(1) && coord(1) < lon_bounds(2)...
         && coord(2) > lat_bounds(1) && coord(2) < lat_bounds(2)
-            day_diff = diffs(k);
+        
+            if is_breakup
+                day_diff = (breakup_days_DTVM-breakup_days_NRC)(k);
+            else
+                day_diff = (freezeup_days_DTVM-freezeup_days_NRC)(k);
+            end
+
             if ~isnan(day_diff)
                 if abs(day_diff) > day_difference_cutoff
                     % Time-series + map
@@ -110,7 +113,11 @@ if plot_ts_for_region
                                     {freezeup_days_NRC,breakup_days_NRC,freezeup_days_DTVM,breakup_days_DTVM},...
                                     1);
                     % Histogram
-                    days_for_histogram = freezeup_or_breakup_index(k,:);
+                    if is_breakup
+                        days_for_histogram = BR_index(k,:);
+                    else
+                        days_for_histogram = FR_index(k,:);
+                    end
                     plot_histogram(days_for_histogram, coord, is_breakup);
                     created = created + 1;
                     if created >= creation_limit

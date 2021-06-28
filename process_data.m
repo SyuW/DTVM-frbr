@@ -1,5 +1,5 @@
 global output_directory
-output_directory = '~/scratch/dtvm_outputs/';
+output_directory = './dtvm_outputs/';
 
 calc_window = 5;
 

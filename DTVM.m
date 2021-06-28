@@ -1,5 +1,5 @@
 global output_directory;
-output_directory = '~/scratch/dtvm_outputs/';
+output_directory = './dtvm_outputs';
 
 use_binarized = 0;
 filtered_after = 0;
@@ -191,12 +191,12 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(days, mat, num_of_thr
         % Calculate possible breakup days by counting forwards
         for th = 1:length(thresholds_vec)
             threshold = thresholds_vec(th);
-            if isnan(BR_index(loc, th));
+            if isnan(BR_index(loc, th))
                 % Iterate over days to find when threshold exceeded
                 % "Jump over fluctuations for dates earlier than start of breakup season"
                 for d = 60:days(end)-1
                     threshold_exceeded = (mat(loc,d) >= threshold) ||...
-                                         (mat(loc,d) > threshold & mat(loc,d+1) < threshold);
+                                         (mat(loc,d) > threshold && mat(loc,d+1) < threshold);
                     if threshold_exceeded
                         BR_index(loc,th)=days(d);
                         break
@@ -272,7 +272,7 @@ function [] = plot_ts_and_map(mats, names, loc_index, location, days, dates_cell
     lat = location(2);
 
     colors = {'r', 'g', 'c', 'm'};
-    day_type_names = {"NRC Freeze-up", "NRC Breakup", "DTVM Freeze-up", "DTVM Breakup"};
+    day_type_names = ["NRC Freeze-up", "NRC Breakup", "DTVM Freeze-up", "DTVM Breakup"];
     figure;
     axs = [subplot(3,2,2) subplot(3,2,4) subplot(3,2, [5 6])];
     for k = 1:length(axs)

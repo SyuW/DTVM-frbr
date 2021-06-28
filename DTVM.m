@@ -1,8 +1,8 @@
 global output_directory;
 output_directory = '~/scratch/dtvm_outputs/';
 
-use_binarized = 1;
-filtered_after = 1;
+use_binarized = 0;
+filtered_after = 0;
 
 if use_binarized
     msg='Using the binarized SIC signal';
@@ -12,7 +12,7 @@ if use_binarized
         load_fname=strcat(output_directory,'/out/calc_mats_bin_sic_filtered');
     end
 else
-    msg='Using the unprocessed SIC signal'
+    msg='Using the unprocessed SIC signal';
     load_fname=strcat(output_directory,'/out/calc_mats');
 end
 
@@ -32,7 +32,7 @@ breakup_days_NRC = cts_presence_breakup_freezeup(sic_mat, date_vec, 'Breakup');
 [freezeup_days_DTVM breakup_days_DTVM BR_index FR_index] = DTVM_freezeup_breakup(date_vec, sic_std_mat, num_of_thresholds, iqr_lim);
 
 %%%%%% Create maps of breakup/freeze-up days %%%%%%
-plot_frbr_date_maps = 0;
+plot_frbr_date_maps = 1;
 if plot_frbr_date_maps
     % Also plot the differences as maps
     names = {'NRC Freeze-up days','NRC Breakup days','DTVM Freeze-up days','DTVM Breakup days',...
@@ -81,8 +81,8 @@ regions = {{[51 55], [-83 -78]},... % James Bay
            {[63 70], [-65 -50]},... % Baffin Sea
            {[50 62], [-64 -50]}};   % East Coast
 
-custom_region = {[-64 -56] [54 60]}
-region = custom_region %regions{6};
+custom_region = {[-64 -56] [54 60]};
+region = custom_region; %regions{6};
 
 lat_bounds = region{1};
 lon_bounds = region{2};
@@ -141,7 +141,7 @@ if plot_ts_for_region
             end
         end
     end
-    disp('Done plotting time-series for spurious points and generating histograms');
+    disp('Done plotting time-series for spurious/regular points and generating histograms');
 end
 
 % Clear everything to conserve memory
@@ -193,6 +193,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(days, mat, num_of_thr
             threshold = thresholds_vec(th);
             if isnan(BR_index(loc, th));
                 % Iterate over days to find when threshold exceeded
+                % "Jump over fluctuations for dates earlier than start of breakup season"
                 for d = 60:days(end)-1
                     threshold_exceeded = (mat(loc,d) >= threshold) ||...
                                          (mat(loc,d) > threshold & mat(loc,d+1) < threshold);

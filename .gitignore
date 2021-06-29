@@ -4,3 +4,5 @@
 *.gif
 *.log
 *shape_files*
+./dtvm_outputs/*
+./data/*

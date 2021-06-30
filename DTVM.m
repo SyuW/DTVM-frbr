@@ -1,17 +1,15 @@
-% --------------------------------------------------------- %
-% --------------------- Main script ----------------------- %
-% --------------------------------------------------------- %
+% ----------------------------------------------------------- %
+% --------------------- Main function ----------------------- %
+% ----------------------------------------------------------- %
 
 % Call the execution of DTVM method for freeze-up/breakup
 DTVM_main_exec();
 
 function [] = DTVM_main_exec()
-    output_directory = './dtvm_outputs/';
-
     % load variables {sic_mat, sic_mean_mat, sic_std_mat, coords} to workspace
-    mats_directory = strcat(output_directory, 'out/');
-    load_fname = 'calc_mats';
-    load(strcat(mats_directory, load_fname),'sic_mat','sic_std_mat');
+    out_directory = './dtvm_outputs/dtvm';
+    mats_directory = './dtvm_outputs/out/';
+    load(strcat(mats_directory, 'sic_mats_binarized_filtered'),'sic_mat','sic_std_mat');
 
     % Controllable parameters
     num_of_thresholds = 500;
@@ -29,10 +27,11 @@ function [] = DTVM_main_exec()
     DTVM_freezeup_breakup(sic_std_mat, num_of_thresholds);
     disp('Done creating DTVM freeze-up/breakup dates');
     toc;
-
-    save(strcat(mats_directory,'NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
-    save(strcat(mats_directory,'DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
-    save(strcat(mats_directory,'DTVM_frbr_indexes'),'BR_index','FR_index');
+    
+    disp(strcat('Writing freeze-up/breakup data to ', out_directory));
+    save(strcat(out_directory,'NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
+    save(strcat(out_directory,'DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
+    save(strcat(out_directory,'DTVM_frbr_indexes'),'BR_index','FR_index');
 end
 
 % --------------------------------------------------------- %

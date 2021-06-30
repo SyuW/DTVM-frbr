@@ -4,6 +4,10 @@
 *.gif
 *.log
 *shape_files*
-dtvm_outputs/
-data/
+dtvm_outputs/dtvm/*
+dtvm_outputs/histograms/*
+dtvm_outputs/maps/*
+dtvm_outputs/out/*
+dtvm_outputs/plots/*
+data/*
 *.asc

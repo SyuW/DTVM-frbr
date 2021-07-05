@@ -9,13 +9,13 @@ function [] = visualization_main_exec()
     out_directory = './dtvm_outputs/';
     
     % Create maps of freezeup/breakup dates
-    % create_maps_of_frbr_dates(out_directory);
+    create_maps_of_frbr_dates(out_directory);
     
     % Visualize underperforming points within region
     % visualize_region_points(out_directory,'breakup');
     
     % Visualize equally spaced grid points in region
-    visualize_sampled_points(out_directory);
+    % visualize_sampled_points(out_directory, 'Hudson Strait', 1);
 end
 
 % ------------------------------------------------------------------ %
@@ -42,15 +42,16 @@ function [] = create_maps_of_frbr_dates(out_dir)
     disp('Done creating freeze-up/breakup maps');
 end
 
-function [] = visualize_sampled_points(out_dir)
+function [] = visualize_sampled_points(out_dir, region_name, histograms)
 
     load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
     load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
-    load(strcat(out_dir,'out','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
+    load(strcat(out_dir,'dtvm/','DTVM_frbr_indexes'),'BR_index','FR_index');
     
+    load(strcat(out_dir,'out/','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
     load(strcat(out_dir,'out/','coords'),'coords');
     
-    [lon_bounds, lat_bounds] = get_region_bounds('Foxe Basin');
+    [lon_bounds, lat_bounds] = get_region_bounds(region_name);
     
     sampled_pts = sample_points_from_grid(lon_bounds, lat_bounds, 5);
     
@@ -58,28 +59,50 @@ function [] = visualize_sampled_points(out_dir)
     for k = 1:length(sampled_pts)
         
         pt = sampled_pts(k,:);
+        % Use the index of the sampled point
         indx = find_closest_coords_index(coords, pt);
         
-        % Extracting timeseries, freezeup/breakup dates, coord using index
         location = coords(indx,:);
-        sic_ts = sic_mat(indx,:);
-        sic_mean_ts = sic_mean_mat(indx,:);
-        sic_std_ts = sic_std_mat(indx,:);
-        
-        frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
-                     br_days_DTVM(indx),fr_days_DTVM(indx)];
-        
         lon = num2str(location(1));
         lat = num2str(location(2));
-        savename = strcat(out_dir,...
-                   'points/visualization_at_',lon,'_',lat,'.png');
-                             
-        visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days,...
-                           location, savename);
+        
+        if histograms
+            % Create histograms instead of time series visualization
+            potential_br_dates = BR_index(indx,:);
+            potential_fr_dates = FR_index(indx,:);
+            
+            br_date = br_days_DTVM(indx);
+            fr_date = fr_days_DTVM(indx);
+            
+            plot_histogram(out_dir, potential_br_dates, lon, lat,...
+                           br_date, 'Breakup');
+            plot_histogram(out_dir, potential_fr_dates, lon, lat,...
+                           fr_date, 'Freezeup');
+            
+        else
+            % Extracting timeseries, freezeup/breakup dates, coord using
+            % index
+            location = coords(indx,:);
+            sic_ts = sic_mat(indx,:);
+            sic_mean_ts = sic_mean_mat(indx,:);
+            sic_std_ts = sic_std_mat(indx,:);
+
+            frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
+                         br_days_DTVM(indx),fr_days_DTVM(indx)];
+
+            savename = strcat(out_dir,...
+                       'points/','Hudson_Strait_unbinarized_unfiltered/',...
+                       'visualization_at_',lon,'_',lat,'.png');
+
+            % Visualize timeseries and freezeup/breakup dates at chosen
+            % location
+            visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days,...
+                               location, savename);
+        end
     end
 end
 
-function [] = visualize_region_points(out_dir, day_type)
+function [] = visualize_region_points(out_dir, day_type, region_name)
     
     load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
     load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
@@ -96,7 +119,7 @@ function [] = visualize_region_points(out_dir, day_type)
     load(strcat(out_dir,'out/','sic_mats_binarized_filtered'),...
                 'sic_mat','sic_mean_mat','sic_std_mat');
     
-    [lon_bounds, lat_bounds] = get_region_bounds('Hudson Bay');
+    [lon_bounds, lat_bounds] = get_region_bounds(region_name);
     
     % Controlling parameters
     created = 0;
@@ -240,11 +263,9 @@ function [] = create_frbr_dates_map(out_dir, dates, plot_title, color_lims)
     clf;
 end
 
-function [] = plot_histogram(dates_index, location, flagged_date, day_type_str)
+function [] = plot_histogram(out_dir, dates_index, lon, lat,...
+                             flagged_date, day_type_str)
 
-    lon = num2str(location(1));
-    lat = num2str(location(2));
-    
     figure('visible','off');
 
     histogram(dates_index, 1:365, 'Normalization', 'probability');
@@ -254,8 +275,6 @@ function [] = plot_histogram(dates_index, location, flagged_date, day_type_str)
 
     fig_title = strcat(day_type_str,' histogram',' at',' (',lon,',',lat,')');
     title(fig_title);
-    save_fname = strcat(output_directory,'histograms/',day_type_str,...
-                        '_histogram','_at',lon,'_',lat,'.png');
 
     xlabel('Day of year');
     ylabel('Normalized frequency');
@@ -264,6 +283,9 @@ function [] = plot_histogram(dates_index, location, flagged_date, day_type_str)
     if ~isnan(dates_index)
         xlim([min(dates_index)-padding max(dates_index)+padding]);
     end
+    
+    save_fname = strcat(out_dir,'histograms/',day_type_str,...
+                        '_histogram','_at',lon,'_',lat,'.png');
     saveas(gca, save_fname);
     
     clf;

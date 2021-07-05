@@ -279,12 +279,10 @@ end
 
 function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
     
-    % Sample lons and lats from bounds
     lon_sample = linspace(lon_bounds(1),lon_bounds(2),grid_res);
     lat_sample = linspace(lat_bounds(1),lat_bounds(2),grid_res);
     points = cell(grid_res, grid_res);
     
-    % Combine sampled lons/lats for new coordinates
     for m = 1:grid_res
         for n = 1:grid_res
             lon = lon_sample(m);
@@ -292,7 +290,4 @@ function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
             points{m,n} = [lon lat];
         end
     end
-    
-    % Flatten to 1D array
-    points = vertcat(points{:});
 end

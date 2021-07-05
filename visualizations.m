@@ -46,13 +46,37 @@ function [] = visualize_sampled_points(out_dir)
 
     load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
     load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
+    load(strcat(out_dir,'out','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
     
     load(strcat(out_dir,'out/','coords'),'coords');
     
-    [lon_bounds, lat_bounds] = get_region_bounds('Hudson Bay');
+    [lon_bounds, lat_bounds] = get_region_bounds('Foxe Basin');
     
     sampled_pts = sample_points_from_grid(lon_bounds, lat_bounds, 5);
-    skeyboard;
+    
+    % Find closest coords and create visualization for each point
+    for k = 1:length(sampled_pts)
+        
+        pt = sampled_pts(k,:);
+        indx = find_closest_coords_index(coords, pt);
+        
+        % Extracting timeseries, freezeup/breakup dates, coord using index
+        location = coords(indx,:);
+        sic_ts = sic_mat(indx,:);
+        sic_mean_ts = sic_mean_mat(indx,:);
+        sic_std_ts = sic_std_mat(indx,:);
+        
+        frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
+                     br_days_DTVM(indx),fr_days_DTVM(indx)];
+        
+        lon = num2str(location(1));
+        lat = num2str(location(2));
+        savename = strcat(out_dir,...
+                   'points/visualization_at_',lon,'_',lat,'.png');
+                             
+        visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days,...
+                           location, savename);
+    end
 end
 
 function [] = visualize_region_points(out_dir, day_type)
@@ -103,7 +127,7 @@ function [] = visualize_region_points(out_dir, day_type)
                     lat = num2str(coord(2));
                     
                     savename = strcat(out_dir,...
-                    'points/visualization_at_',lon,',',lat,'.png');
+                    'points/visualization_at_',lon,'_',lat,'.png');
                     visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
                                        frbr_days, coord, savename);
                     % Histogram
@@ -129,8 +153,6 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     lat = location(2);
     
     figure('visible','off');
-    
-    %keyboard;
                        
     % SIC  
     sic_ax = subplot(3,2,2);

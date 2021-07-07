@@ -12,6 +12,12 @@ function [] = process_data_main_exec(data_src)
     %                 2009_esacci/, 2010_esacci/)
     %
     % arguments (output): None
+    %
+    % saved variables:
+    %   sic_mat - 2D matrix of sea ice concentrations (SIC)
+    %   sic_mean_mat - 2D matrix of moving mean of SIC
+    %   sic_std_mat - 2D matrix of moving std deviation of SIC
+    %   coords - 2D matrix of coordinates (one coord per row)
 
     % Start of timer
     tic

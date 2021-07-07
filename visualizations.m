@@ -25,7 +25,10 @@ end
 % ------------------------------------------------------------------ %
 
 function [] = create_map_of_optimal_frbr_windows(work_dir)
-     
+    
+    load(strcat(work_dir,'dtvm','DTVM_frbr_dates_binfilt'));
+    load(strcat(work_dir,'dtvm','NRC_frbr_dates_varied_periods'));
+ 
 end
 
 function [] = create_maps_of_frbr_dates(work_dir)

@@ -8,6 +8,20 @@
 DTVM_main_exec('esacci_2007/');
 
 function [] = DTVM_main_exec(data_src)
+    % Entry point of execution of DTVM method
+    % arguments (input):
+    %   data_src - string describing which data source to use
+    %       allowed: (2007_esacci/, 2008_esacci/, 
+    %                 2009_esacci/, 2010_esacci/)
+    %
+    % arguments (output): None
+    %
+    % loaded variables:
+    %   sic_mat - 2D matrix of sea ice concentrations (SIC)
+    %   sic_std_mat - 2D matrix of moving std deviation of SIC
+    %
+    % saved variables: None
+    
     % load variables {sic_mat, sic_mean_mat, sic_std_mat, coords} to workspace
     out_dir = strcat('./dtvm_outputs/',data_src,'dtvm/');
     mats_dir = strcat('./dtvm_outputs/',data_src,'out');
@@ -24,6 +38,21 @@ end
 % ----------------------------------------------------------------------- %
 
 function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat)
+    % Entry point of execution of DTVM method
+    % arguments (input):
+    %   data_src - string describing which data source to use
+    %       allowed: (2007_esacci/, 2008_esacci/, 
+    %                 2009_esacci/, 2010_esacci/)
+    %
+    % arguments (output): None
+    %
+    % loaded variables: None
+    %
+    % saved variables:
+    %   br_days_NRC - 2D matrix of NRC breakup days
+    %   fr_days_NRC - 2D matrix of NRC freezeup days
+    %   DTVM_br_days - 
+    
     % Controllable parameters
     num_of_thresholds = 500;
     

@@ -2,9 +2,9 @@
 % --------------------- Main function ----------------------- %
 % ----------------------------------------------------------- %
 
-process_data_main_exec('2007_esacci/');
+process_data_main_exec('2009_esacci/', 0);
 
-function [] = process_data_main_exec(data_src)
+function [] = process_data_main_exec(data_src, binfilt)
     % Entry point of execution when process_data.m is run
     % arguments (input):
     %   data_src - string describing which data source to use
@@ -22,6 +22,11 @@ function [] = process_data_main_exec(data_src)
     % Start of timer
     tic
     
+    % Make the output directory if it doesn't exist
+    if not(isfolder(strcat('./dtvm_outputs/',data_src,'out/')))
+        mkdir(strcat('./dtvm_outputs/',data_src,'out/'));
+    end
+    
     % output/data paths based on data source choice
     output_directory = strcat('./dtvm_outputs/',data_src,'out/');
     data_directory = strcat('./data/esacci_sic/',data_src);
@@ -29,19 +34,21 @@ function [] = process_data_main_exec(data_src)
     % Create sea ice concentration matrix
     sic_mat = create_sic_mat(data_directory);
     
-    % Additional processing
-    sic_mat = binarize_signal(sic_mat, 0.15);
-    sic_mat = filter_signal(sic_mat, 5, 2);
-    disp('Done constructing SIC matrix from data files');
-
+    if binfilt
+        % Additional processing
+        sic_mat = binarize_signal(sic_mat, 0.15);
+        sic_mat = filter_signal(sic_mat, 5, 2);
+        mats_save_path = strcat(output_directory, 'sic_mats_binarized_filtered');
+        disp('Done constructing SIC matrix from data files');
+    else
+        mats_save_path = strcat(output_directory, 'sic_mats');
+    end
+        
     % Calculate moving mean/standard deviation of signal
     calc_window = 5;
     sic_mean_mat = movmean(sic_mat, [calc_window-1, 0], 2);
     sic_std_mat = movstd(sic_mat, [calc_window-1, 0], 0, 2);
     disp('Done calculating moving mean/std deviation of signal');
-    
-    % Change the following line for a different filename
-    mats_save_path = strcat(output_directory, 'sic_mats_binarized_filtered');
     
     % Write all sea ice concentration related matrices to file
     disp(strcat('Writing SIC matrices to file'));

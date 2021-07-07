@@ -5,7 +5,7 @@
 % Call the execution of DTVM method for freeze-up/breakup
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
-DTVM_main_exec('esacci_2007/');
+DTVM_main_exec('esacci_2010/');
 
 function [] = DTVM_main_exec(data_src)
     % Entry point of execution of DTVM method
@@ -22,9 +22,13 @@ function [] = DTVM_main_exec(data_src)
     %
     % saved variables: None
     
-    % load variables {sic_mat, sic_mean_mat, sic_std_mat, coords} to workspace
     out_dir = strcat('./dtvm_outputs/',data_src,'dtvm/');
     mats_dir = strcat('./dtvm_outputs/',data_src,'out');
+    
+    % Make the output directory if it doesn't exist
+    if not(isfolder(out_dir))
+        mkdir(out_dir);
+    end
     
     % Load the sea ice concentration matrix created by process_data.m
     load(strcat(mats_dir, 'sic_mats_binarized_filtered'),...
@@ -61,8 +65,10 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat)
     br_days_NRC = cts_presence_breakup_freezeup(sic_mat, 'Breakup', period);
     disp('Done creating NRC freeze-up/breakup dates');
     
-    % Calculate DTVM freezeup/breakup dates vector
-    [fr_days_DTVM, br_days_DTVM, BR_index, FR_index] = DTVM_freezeup_breakup(sic_std_mat, num_of_thresholds);
+    % Calculate DTVM freezeup/breakup dates vectors/indexes
+    [fr_days_DTVM, br_days_DTVM, BR_index, FR_index]... 
+        = DTVM_freezeup_breakup(sic_std_mat, num_of_thresholds);
+    
     save(strcat(out_dir,'DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
     save(strcat(out_dir,'DTVM_frbr_indexes'),'BR_index','FR_index');
     disp('Done creating DTVM freeze-up/breakup dates');

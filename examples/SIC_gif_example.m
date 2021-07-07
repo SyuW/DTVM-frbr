@@ -1,4 +1,4 @@
-dir_sic=dir(['~/sic_data_2007/*2007*.dat']);
+dir_sic=dir(['../data/esacci_sic_data_2007/*2007*.dat']);
 sic_mat = [];
 date_vec = [];
 

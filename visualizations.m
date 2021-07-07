@@ -6,10 +6,12 @@
 visualization_main_exec();
 
 function [] = visualization_main_exec()
-    out_directory = './dtvm_outputs/';
+    out_dir = './dtvm_outputs/';
+    data_src = '2007_esacci/';
     
+    work_dir = strcat(out_dir,data_src);
     % Create maps of freezeup/breakup dates
-    create_maps_of_frbr_dates(out_directory);
+    create_maps_of_frbr_dates(work_dir);
     
     % Visualize underperforming points within region
     % visualize_region_points(out_directory,'breakup');
@@ -22,34 +24,37 @@ end
 % --------------------- Analysis functions ------------------------- %
 % ------------------------------------------------------------------ %
 
-function [] = create_maps_of_frbr_dates(out_dir)
-
-    load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),...
-         'br_days_DTVM', 'fr_days_DTVM');
-    load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),...
-         'br_days_NRC', 'fr_days_NRC');
+function [] = create_map_of_optimal_frbr_windows(work_dir)
      
-    create_frbr_dates_map(out_dir, fr_days_NRC, 'NRC Freeze-up days', [1 365]);
-    create_frbr_dates_map(out_dir, br_days_NRC, 'NRC Breakup days', [1 365]);
-    create_frbr_dates_map(out_dir, fr_days_DTVM, 'DTVM Freeze-up days', [1 365]);
-    create_frbr_dates_map(out_dir, br_days_DTVM, 'DTVM Breakup days', [1 365]);
+end
+
+function [] = create_maps_of_frbr_dates(work_dir)
+
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates_binfilt'), 'br_days_DTVM', 'fr_days_DTVM');
+    load(strcat(work_dir,'dtvm/','NRC_frbr_dates_binfilt'), 'br_days_NRC', 'fr_days_NRC');
+    load(strcat(work_dir,'out/','coords'),'coords');
     
-    create_frbr_dates_map(out_dir, br_days_DTVM-br_days_NRC,...
-                          'DTVM-NRC Breakup Difference', [-100 100]);
-    create_frbr_dates_map(out_dir, fr_days_DTVM-fr_days_NRC,...
-                          'DTVM-NRC Freeze-up Difference', [-100 100]);
+    save_dir = strcat(work_dir, 'maps/', 'Binarized_filtered_maps/');
+    
+    create_frbr_dates_map(save_dir, coords, fr_days_NRC, 'NRC Freeze-up days', [1 365]);
+    create_frbr_dates_map(save_dir, coords, br_days_NRC, 'NRC Breakup days', [1 365]);
+    create_frbr_dates_map(save_dir, coords, fr_days_DTVM, 'DTVM Freeze-up days', [1 365]);
+    create_frbr_dates_map(save_dir, coords, br_days_DTVM, 'DTVM Breakup days', [1 365]);
+    
+    create_frbr_dates_map(save_dir, coords, br_days_DTVM-br_days_NRC, 'DTVM-NRC Breakup Difference', [-100 100]);
+    create_frbr_dates_map(save_dir, coords, fr_days_DTVM-fr_days_NRC, 'DTVM-NRC Freeze-up Difference', [-100 100]);
                       
     disp('Done creating freeze-up/breakup maps');
 end
 
-function [] = visualize_sampled_points(out_dir, region_name, histograms)
+function [] = visualize_sampled_points(work_dir, region_name, histograms)
 
-    load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
-    load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
-    load(strcat(out_dir,'dtvm/','DTVM_frbr_indexes'),'BR_index','FR_index');
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
+    load(strcat(work_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_indexes'),'BR_index','FR_index');
     
-    load(strcat(out_dir,'out/','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
-    load(strcat(out_dir,'out/','coords'),'coords');
+    load(strcat(work_dir,'out/','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
+    load(strcat(work_dir,'out/','coords'),'coords');
     
     [lon_bounds, lat_bounds] = get_region_bounds(region_name);
     
@@ -74,9 +79,9 @@ function [] = visualize_sampled_points(out_dir, region_name, histograms)
             br_date = br_days_DTVM(indx);
             fr_date = fr_days_DTVM(indx);
             
-            plot_histogram(out_dir, potential_br_dates, lon, lat,...
+            plot_histogram(work_dir, potential_br_dates, lon, lat,...
                            br_date, 'Breakup');
-            plot_histogram(out_dir, potential_fr_dates, lon, lat,...
+            plot_histogram(work_dir, potential_fr_dates, lon, lat,...
                            fr_date, 'Freezeup');
             
         else
@@ -90,7 +95,7 @@ function [] = visualize_sampled_points(out_dir, region_name, histograms)
             frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
                          br_days_DTVM(indx),fr_days_DTVM(indx)];
 
-            savename = strcat(out_dir,...
+            savename = strcat(work_dir,...
                        'points/','Hudson_Strait_unbinarized_unfiltered/',...
                        'visualization_at_',lon,'_',lat,'.png');
 
@@ -102,10 +107,10 @@ function [] = visualize_sampled_points(out_dir, region_name, histograms)
     end
 end
 
-function [] = visualize_region_points(out_dir, day_type, region_name)
+function [] = visualize_region_points(work_dir, day_type, region_name)
     
-    load(strcat(out_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
-    load(strcat(out_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
+    load(strcat(work_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
     
     if strcmp(day_type,'freezeup')
         diffs=fr_days_DTVM-fr_days_NRC;
@@ -113,10 +118,10 @@ function [] = visualize_region_points(out_dir, day_type, region_name)
         diffs=br_days_DTVM-br_days_NRC;
     end
     
-    load(strcat(out_dir,'out/','coords'),'coords');
+    load(strcat(work_dir,'out/','coords'),'coords');
     num_of_locations = length(coords);
     
-    load(strcat(out_dir,'out/','sic_mats_binarized_filtered'),...
+    load(strcat(work_dir,'out/','sic_mats_binarized_filtered'),...
                 'sic_mat','sic_mean_mat','sic_std_mat');
     
     [lon_bounds, lat_bounds] = get_region_bounds(region_name);
@@ -149,8 +154,9 @@ function [] = visualize_region_points(out_dir, day_type, region_name)
                     lon = num2str(coord(1));
                     lat = num2str(coord(2));
                     
-                    savename = strcat(out_dir,...
+                    savename = strcat(work_dir,...
                     'points/visualization_at_',lon,'_',lat,'.png');
+                
                     visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
                                        frbr_days, coord, savename);
                     % Histogram
@@ -241,9 +247,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     clf;
 end
 
-function [] = create_frbr_dates_map(out_dir, dates, plot_title, color_lims)
-
-    load(strcat(out_dir,'out/','coords'),'coords');
+function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title, color_lims)
     
     figure('visible','off');
 
@@ -257,13 +261,15 @@ function [] = create_frbr_dates_map(out_dir, dates, plot_title, color_lims)
     title(plot_title);
     xlabel('Longitude');
     ylabel('Latitude');
-    save_fname = strcat(out_dir,'maps/',plot_title,'.png');
+    save_fname = strcat(save_dir,plot_title,'.png');
+    
+    disp(strcat('Saving freezeup/breakup map at path: ', save_fname));
     saveas(gca, save_fname);
     
     clf;
 end
 
-function [] = plot_histogram(out_dir, dates_index, lon, lat,...
+function [] = plot_histogram(save_dir, dates_index, lon, lat,...
                              flagged_date, day_type_str)
 
     figure('visible','off');
@@ -284,7 +290,7 @@ function [] = plot_histogram(out_dir, dates_index, lon, lat,...
         xlim([min(dates_index)-padding max(dates_index)+padding]);
     end
     
-    save_fname = strcat(out_dir,'histograms/',day_type_str,...
+    save_fname = strcat(save_dir,'histograms/',day_type_str,...
                         '_histogram','_at',lon,'_',lat,'.png');
     saveas(gca, save_fname);
     

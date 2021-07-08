@@ -2,7 +2,7 @@
 % --------------------- Main function ----------------------- %
 % ----------------------------------------------------------- %
 
-process_data_main_exec('2009_esacci/', 0);
+process_data_main_exec('2010_esacci/', 0);
 
 function [] = process_data_main_exec(data_src, binfilt)
     % Entry point of execution when process_data.m is run

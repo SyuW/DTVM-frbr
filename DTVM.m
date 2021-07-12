@@ -42,7 +42,7 @@ function [] = DTVM_main_exec(data_src, binfilt)
     create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, binfilt);
     
     % create NRC frbr dates for varying periods
-    create_NRC_frbr_for_window_range
+    create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, binfilt)
 end
 
 % ----------------------------------------------------------------------- %
@@ -252,4 +252,35 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
             FR(loc) = fr_range(2);
         end
     end
+end
+
+% ---------------------------------------------------------------- %
+% --------------------- Helper functions ------------------------- %
+% ---------------------------------------------------------------- %
+
+function [signal] = filter_signal(signal, window_size, dim)
+    % Get all coordinates
+    % arguments (input):
+    %   signal - 1D matrix representing signal to be filtered
+    %   window_size - order of the median filter
+    %   dim - which dimension of input to filter (should be 1)
+    %
+    % arguments (output):
+    %   signal - 1D matrix representing filtered signal
+    
+    signal = single(signal);
+    signal = medfilt1(signal, window_size, [], dim, 'zeropad');
+end
+
+function [signal] = binarize_signal(signal, cutoff)
+    % Binarize signal at cutoff
+    % arguments (input):
+    %   signal - 1D matrix representing signal to be binarized
+    %   cutoff - cutoff value
+    %
+    % arguments (output):
+    %   signal - 1D matrix representing binarized signal
+    
+    signal = signal > cutoff;
+    signal = single(signal);
 end

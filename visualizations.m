@@ -11,13 +11,16 @@ function [] = visualization_main_exec()
     
     work_dir = strcat(out_dir,data_src);
     % Create maps of freezeup/breakup dates
-    create_maps_of_frbr_dates(work_dir);
+    %create_maps_of_frbr_dates(work_dir);
     
     % Visualize underperforming points within region
-    % visualize_region_points(out_directory,'breakup');
+    %visualize_region_points(work_dir,'breakup');
     
     % Visualize equally spaced grid points in region
-    % visualize_sampled_points(out_directory, 'Hudson Strait', 1);
+    %visualize_sampled_points(work_dir, 'Foxe_Basin', 0);
+    
+    % Create map of optimal window for NRC freezeup/breakup calc
+    create_map_of_optimal_frbr_windows(work_dir);
 end
 
 % ------------------------------------------------------------------ %
@@ -26,9 +29,18 @@ end
 
 function [] = create_map_of_optimal_frbr_windows(work_dir)
     
-    load(strcat(work_dir,'dtvm','DTVM_frbr_dates_binfilt'));
-    load(strcat(work_dir,'dtvm','NRC_frbr_dates_varied_periods'));
- 
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates_binfilt'),...
+                'fr_days_DTVM','br_days_DTVM');
+    
+    NRC_varied_frbr_dir = dir(strcat(work_dir,'dtvm/',...
+                              'NRC_frbr_dates_varied_periods/*.mat'));
+    
+    for ifile = 1:length(NRC_varied_frbr_dir)
+        fname = NRC_varied_frbr_dir(ifile).name;
+        fname.split(fname, '_')
+        disp(fname);
+    end
+    
 end
 
 function [] = create_maps_of_frbr_dates(work_dir)
@@ -52,11 +64,12 @@ end
 
 function [] = visualize_sampled_points(work_dir, region_name, histograms)
 
-    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates'),'br_days_DTVM','fr_days_DTVM');
-    load(strcat(work_dir,'dtvm/','NRC_frbr_dates'),'br_days_NRC','fr_days_NRC');
+    load(strcat(work_dir,'dtvm/','DTVM_frbr_dates_binfilt'),'br_days_DTVM','fr_days_DTVM');
+    load(strcat(work_dir,'dtvm/','NRC_frbr_dates_binfilt'),'br_days_NRC','fr_days_NRC');
     load(strcat(work_dir,'dtvm/','DTVM_frbr_indexes'),'BR_index','FR_index');
     
-    load(strcat(work_dir,'out/','sic_mats'),'sic_mat','sic_mean_mat','sic_std_mat');
+    load(strcat(work_dir,'out/','sic_mats_binarized_filtered'),...
+                         'sic_mat','sic_mean_mat','sic_std_mat');
     load(strcat(work_dir,'out/','coords'),'coords');
     
     [lon_bounds, lat_bounds] = get_region_bounds(region_name);
@@ -97,10 +110,13 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms)
 
             frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
                          br_days_DTVM(indx),fr_days_DTVM(indx)];
-
-            savename = strcat(work_dir,...
-                       'points/','Hudson_Strait_unbinarized_unfiltered/',...
-                       'visualization_at_',lon,'_',lat,'.png');
+            
+            save_dir = strcat(work_dir,'points/',region_name,'_binfilt/');
+            if not(isfolder(save_dir, 'dir'))
+                mkdir(save_dir);
+            end
+            
+            savename = strcat(save_dir,'visualization_at_',lon,'_',lat,'.png');
 
             % Visualize timeseries and freezeup/breakup dates at chosen
             % location
@@ -312,8 +328,8 @@ end
 
 function [lon_bounds, lat_bounds] = get_region_bounds(name)
     
-    region_names = {'James Bay', 'Hudson Bay', 'Foxe Basin',...
-                    'Hudson Strait', 'Baffin Sea', 'East Coast'};
+    region_names = {'James_Bay', 'Hudson_Bay', 'Foxe_Basin',...
+                    'Hudson_Strait', 'Baffin_Sea', 'East_Coast'};
                 
               %Lat_bounds Lon_bounds
     regions = {{[51 55], [-83 -78]},... % James Bay

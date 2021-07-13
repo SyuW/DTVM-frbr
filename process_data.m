@@ -38,7 +38,7 @@ function [] = process_data_main_exec(data_src, binfilt)
         % Additional processing
         sic_mat = binarize_signal(sic_mat, 0.15);
         sic_mat = filter_signal(sic_mat, 5, 2);
-        mats_save_path = strcat(output_directory, 'sic_mats_binarized_filtered');
+        mats_save_path = strcat(output_directory, 'sic_mats');
         disp('Done constructing SIC matrix from data files');
     else
         mats_save_path = strcat(output_directory, 'sic_mats');
@@ -52,7 +52,7 @@ function [] = process_data_main_exec(data_src, binfilt)
     
     % Write all sea ice concentration related matrices to file
     disp(strcat('Writing SIC matrices to file'));
-    save(mats_save_path,'sic_mat','sic_std_mat','sic_mean_mat');
+    save(mats_save_path,'sic_std_mat','sic_mean_mat','-append');
     
     % Get coordinate locations of all points
     coords = get_all_coordinates(data_directory);

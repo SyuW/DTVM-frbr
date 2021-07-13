@@ -31,15 +31,46 @@ function [] = create_map_of_optimal_frbr_windows(work_dir)
     
     load(strcat(work_dir,'dtvm/','DTVM_frbr_dates_binfilt'),...
                 'fr_days_DTVM','br_days_DTVM');
+    load(strcat(work_dir,'out/','coords'),'coords');
     
     NRC_varied_frbr_dir = dir(strcat(work_dir,'dtvm/',...
-                              'NRC_frbr_dates_varied_periods/*.mat'));
+                              'NRC_frbr_dates_varied_periods_binfilt/*.mat'));
+    
+    num_of_locs = size(coords, 1);                      
+                          
+    fr_dates_over_all_periods = nan(length(NRC_varied_frbr_dir),num_of_locs);
+    br_dates_over_all_periods = nan(length(NRC_varied_frbr_dir),num_of_locs);
+    periods_vec = nan(1,length(NRC_varied_frbr_dir));
     
     for ifile = 1:length(NRC_varied_frbr_dir)
         fname = NRC_varied_frbr_dir(ifile).name;
-        fname.split(fname, '_')
-        disp(fname);
+        str_cell = split(fname, '_');
+        
+        period = str_cell{end}(1:end-4);
+        periods_vec(ifile) = str2double(period);
+        
+        load([NRC_varied_frbr_dir(ifile).folder '\' NRC_varied_frbr_dir(ifile).name],...
+             'fr_days_NRC', 'br_days_NRC');
+         
+        fr_dates_over_all_periods(ifile,:) = fr_days_NRC;
+        br_dates_over_all_periods(ifile,:) = br_days_NRC;
     end
+    
+    optimal_NRC_br_periods_vec = nan(1,num_of_locs);
+    optimal_NRC_fr_periods_vec = nan(1,num_of_locs);
+    
+    for k = 1:num_of_locs
+        fr_diffs = abs(fr_dates_over_all_periods(:,k) - fr_days_DTVM(k));
+        br_diffs = abs(br_dates_over_all_periods(:,k) - br_days_DTVM(k));
+        
+        [~,I_fr] = min(fr_diffs);
+        [~,I_br] = min(br_diffs);
+        
+        optimal_NRC_br_periods_vec(k) = periods_vec(I_br);
+        optimal_NRC_fr_periods_vec(k) = periods_vec(I_fr);
+    end
+    
+    keyboard;
     
 end
 

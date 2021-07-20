@@ -6,6 +6,20 @@
 visualization_main_exec("2007_esacci/");
 
 function [] = visualization_main_exec(data_src)
+    % Entry point of execution of DTVM method
+    % arguments:
+    %   data_src - string describing which data source to use
+    %       allowed: (2007_esacci/, 2008_esacci/, 
+    %                 2009_esacci/, 2010_esacci/)
+    %
+    % return: None
+    %
+    % loaded variables:
+    %   sic_mat - 2D matrix of sea ice concentrations (SIC)
+    %   sic_std_mat - 2D matrix of moving std deviation of SIC
+    %
+    % saved variables: None
+    
     out_dir = "./dtvm_outputs/";
     
     work_dir = strcat(out_dir,data_src);
@@ -27,6 +41,24 @@ end
 % ------------------------------------------------------------------ %
 
 function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
+    % Create maps of NRC window values that yield NRC freeze-up/breakup
+    % dates closest to DTVM calculated dates
+    %
+    % arguments:
+    %   work_dir -  
+    %   binfilt -
+    %
+    % return: None
+    %
+    % loaded variables:
+    %   DTVM_frbr_dates(_binfilt)
+    %       fr_days_DTVM - vector of DTVM freeze-up dates
+    %       br_days_DTVM - vector of DTVM breakup dates
+    %   NRC_frbr_p_{window}
+    %       fr_days_NRC - vector of NRC freeze-up dates for {window}
+    %       br_days_NRC - vector of NRC breakup dates for {window}
+    %
+    % saved variables: None
     
     load(work_dir + "out/coords", "coords");
     
@@ -85,6 +117,24 @@ function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
 end
 
 function [] = create_maps_of_frbr_dates(work_dir, binfilt)
+    % Create maps of freeze-up/breakup dates
+    % arguments:
+    %   work_dir - path to directory with dtvm outputs
+    %   binfilt - boolean for whether processed/raw data is used
+    %
+    % return: None
+    %
+    % loaded variables:
+    %   coords
+    %       coords - 2D matrix of coordinates of each location
+    %   DTVM_frbr_dates(_binfilt)
+    %       br_days_DTVM - vector of DTVM breakup dates
+    %       fr_days_DTVM - vector of DTVM freeze-up dates
+    %   NRC_frbr_dates(_binfilt)
+    %       br_days_NRC - vector of NRC breakup dates
+    %       fr_days_NRC - vector of NRC freezeup dates
+    %
+    % saved variables: None
     
     load(work_dir+"out/coords", "coords");
     
@@ -112,6 +162,15 @@ function [] = create_maps_of_frbr_dates(work_dir, binfilt)
 end
 
 function [] = visualize_sampled_points(work_dir, region_name, histograms, binfilt)
+    % Create visualizations for regularly spaced points in region
+    % arguments:
+    %   work_dir - working directory path
+    %   region_name - region name string
+    %   histograms - boolean for whether histograms should be gen.
+    %   binfilt - whether to use raw or processed data
+    % return
+    % saved variables
+    % loaded variables
     
     load(work_dir+"out/coords","coords");
     
@@ -182,8 +241,8 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms, binfil
     end
 end
 
-% Not recommended for use
 function [] = visualize_region_points(work_dir, day_type, region_name, binfilt)
+    % Not recommended for use
     
     load(work_dir+"out/coords","coords");
     
@@ -257,6 +316,18 @@ end
 % ------------------------------------------------------------------ %
 
 function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, location, savename)
+    % Visualize time-series and freeze-up dates at a location
+    % arguments:
+    %   sic_ts - vector describing time series of SIC values
+    %   sic_mean_ts - vector desribing time series of mean SIC values
+    %   sic_std_ts - vector describing time series of std SIC values
+    %   frbr_days - vector of DTVM/NRC freezeup/breakup days at loc.
+    %   location - vector describing the location
+    %   savename - save name of the plot file
+    %
+    % return: None
+    % saved variables: None
+    % loaded variables: None
     
     lon = location(1);
     lat = location(2);
@@ -350,7 +421,23 @@ function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title, color_l
 end
 
 function [] = plot_histogram(save_dir, dates_index, lon, lat, flagged_date, day_type_str)
-
+    % Plot histogram of potential freezeup/breakup dates determined using
+    % DTVM
+    %
+    % arguments:
+    %   save_dir - directory path to save at
+    %   dates_index - potential freezeup/breakup dates at location
+    %   lon - longitude of location considered
+    %   lat - latitude of location considered
+    %   flagged_date - special date at which to draw vertical line, usually
+    %   the precise freeze-up/breakup date determined by DTVM
+    %   day_type_str - string desribing whether freezeup/breakup is
+    %   considered
+    %
+    % return: None
+    % saved variables: None
+    % loaded variables: None
+    
     figure("visible","off");
 
     histogram(dates_index, 1:365, "Normalization", "probability");
@@ -380,12 +467,34 @@ end
 % ------------------------------------------------------------------ %
 
 function [indx] = find_closest_coords_index(coords, chosen_coord)
+    % Find the index of the closest available coordinate
+    % arguments:
+    %   coords - 2D matrix of coordinates for each location
+    %   chosen_coord - provided coordinate tuple
+    %
+    % return:
+    %   indx - index of closest available coordinate
+    %
+    % saved variables: None
+    %
+    % loaded variables: None
     
     diffs_norms = vecnorm(chosen_coord - coords, 2, 2);
     [~,indx] = min(diffs_norms,[],"all","linear");
 end
 
 function [lon_bounds, lat_bounds] = get_region_bounds(name)
+    % Converts region name string to set of longitude/latitude bounds
+    % arguments:
+    %   name - string representing region name
+    %   
+    % return:
+    %   lon_bounds - vector of longitude bounds of the region
+    %   lat_bounds - vector of latitude bounds of the region
+    %
+    % saved variables: None
+    %
+    % loaded variables: None
     
     region_names = ["James_Bay", "Hudson_Bay", "Foxe_Basin",...
                     "Hudson_Strait", "Baffin_Sea", "East_Coast"];
@@ -406,6 +515,19 @@ function [lon_bounds, lat_bounds] = get_region_bounds(name)
 end
 
 function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
+    % Sample coordinates from region at regularly spaced points
+    %
+    % arguments:
+    %   lon_bounds - vector of longitude bounds of the region
+    %   lat_bounds - vector of latitude bounds of the region
+    %   grid_res - number of points wanted between each bound
+    %
+    % return:
+    %   points - 2D matrix of sampled lon,lat coordinates
+    %
+    % saved variables: None
+    %
+    % loaded variables: None
     
     % Sample lons and lats from bounds
     lon_sample = linspace(lon_bounds(1),lon_bounds(2),grid_res);

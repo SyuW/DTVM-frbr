@@ -2,40 +2,39 @@
 % --------------------- Main function ----------------------- %
 % ----------------------------------------------------------- %
 
+tic;
 process_data_main_exec("2010_esacci/", 0);
+toc;
 
 function [] = process_data_main_exec(data_src, binfilt)
     % Entry point of execution when process_data.m is run
-    % arguments (input):
+    % arguments:
     %   data_src - string describing which data source to use
     %       allowed: (2007_esacci/, 2008_esacci/, 
     %                 2009_esacci/, 2010_esacci/)
     %
-    % arguments (output): None
+    % return: None
     %
     % saved variables:
     %   sic_mat - 2D matrix of sea ice concentrations (SIC)
     %   sic_mean_mat - 2D matrix of moving mean of SIC
     %   sic_std_mat - 2D matrix of moving std deviation of SIC
     %   coords - 2D matrix of coordinates (one coord per row)
-
-    % Start of timer
-    tic
-    
-    % Make the output directory if it doesn't exist
-    if not(isfolder("./dtvm_outputs/" + data_src + "out/"))
-        mkdir("./dtvm_outputs/" + data_src + "out/");
-    end
     
     % output/data paths based on data source choice
-    output_directory = "./dtvm_outputs/" + data_src + "out/";
+    output_directory = "./out/" + data_src + "mats/";
     data_directory = "./data/esacci_sic/" + data_src;
+    
+    % Make the output directory if it doesn't exist
+    if not(isfolder(output_directory))
+        mkdir(output_directory);
+    end
     
     % Create sea ice concentration matrix
     sic_mat = create_sic_mat(data_directory);
     
+    % Additional processing
     if binfilt
-        % Additional processing
         sic_mat = binarize_signal(sic_mat, 0.15);
         sic_mat = filter_signal(sic_mat, 5, 2);
         mats_save_path = output_directory + "sic_mats";
@@ -59,9 +58,6 @@ function [] = process_data_main_exec(data_src, binfilt)
     coords_save_path = strcat(output_directory, "coords");
     disp("Writing coordinates to file");
     save(coords_save_path,"coords");
-    
-    % End of timer
-    toc
 end
 
 % ------------------------------------------------------------- %
@@ -70,11 +66,11 @@ end
 
 function [sic_mat] = create_sic_mat(data_dir)
     % Create sea ice concentration matrix from .dat files
-    % arguments (input):
+    % arguments:
     %   data_dir - path string to data source
     %       example: './data/esacci_sic/2007_esacci/'
     %
-    % arguments (output):
+    % return:
     %   sic_mat - 2D matrix of shape [num_of_locations 365]
 
     % Create listing of files inside data folder
@@ -107,11 +103,11 @@ end
 
 function [coords] = get_all_coordinates(data_dir)
     % Get all coordinates
-    % arguments (input):
+    % arguments:
     %   data_dir - path string to data source
     %       example: './data/esacci_sic/2007_esacci/'
     %
-    % arguments (output):
+    % arguments:
     %   coords - matrix with each row representing a coord
     
     dir_sic = dir(data_dir+"*sic*");
@@ -122,12 +118,12 @@ end
 
 function [signal] = filter_signal(signal, window_size, dim)
     % Get all coordinates
-    % arguments (input):
+    % arguments:
     %   signal - 1D matrix representing signal to be filtered
     %   window_size - order of the median filter
     %   dim - which dimension of input to filter (should be 1)
     %
-    % arguments (output):
+    % return:
     %   signal - 1D matrix representing filtered signal
     
     signal = single(signal);
@@ -136,11 +132,11 @@ end
 
 function [signal] = binarize_signal(signal, cutoff)
     % Binarize signal at cutoff
-    % arguments (input):
+    % arguments:
     %   signal - 1D matrix representing signal to be binarized
     %   cutoff - cutoff value
     %
-    % arguments (output):
+    % return:
     %   signal - 1D matrix representing binarized signal
     
     signal = signal > cutoff;

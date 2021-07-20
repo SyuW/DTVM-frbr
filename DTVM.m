@@ -6,17 +6,17 @@
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
 tic;
-DTVM_main_exec("2008_esacci/", 1);
+DTVM_main_exec("2007_esacci/", 1);
 toc;
 
 function [] = DTVM_main_exec(data_src, binfilt)
     % Entry point of execution of DTVM method
-    % arguments (input):
+    % arguments:
     %   data_src - string describing which data source to use
     %       allowed: (2007_esacci/, 2008_esacci/, 
     %                 2009_esacci/, 2010_esacci/)
     %
-    % arguments (output): None
+    % return: None
     %
     % loaded variables:
     %   sic_mat - 2D matrix of sea ice concentrations (SIC)
@@ -43,11 +43,11 @@ function [] = DTVM_main_exec(data_src, binfilt)
     end
     
     % create NRC + DTVM frbr dates -- this is the standard function 
-    %create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, 15, binfilt);
+    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, 15, binfilt);
     
     % create NRC frbr dates for varying periods
-    window_range = 5:30;
-    %create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, binfilt)
+    %window_range = 5:30;
+    %create_NRC_frbr_for_window_range(out_dir, sic_mat, 5:30, binfilt);
 end
 
 % ----------------------------------------------------------------------- %
@@ -57,23 +57,27 @@ end
 function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfilt)
     % Entry point of execution of DTVM method
     % arguments (input):
-    %   out_dir - base output directory (e.g.
+    %   out_dir - base output directory path (e.g.
     %   ./dtvm_outputs/2007_esacci/dtvm/)
     %   sic_mat - matrix containing SIC signals (1D arrays) for each
     %   location
     %   sic_std_mat - matrix containing SIC variability signals
-    %   binfilt - boolean parameter for whether processed/raw data is being
-    %   used
+    %   binfilt - boolean for whether processed/raw data is being used
     %
     % arguments (output): None
     %
     % loaded variables: None
     %
     % saved variables:
-    %   br_days_NRC - 2D matrix of NRC breakup days
-    %   fr_days_NRC - 2D matrix of NRC freezeup days
-    %   br_days_DTVM(_binfilt) - 2D matrix of DTVM breakup days
-    %   fr_days_DTVM(_binfilt) - 2D matrix of DTVM freezeup days
+    %   NRC_frbr_dates(_binfilt)
+    %       br_days_NRC - vector of NRC breakup days
+    %       fr_days_NRC - vector of NRC freezeup days
+    %   DTVM_frbr_dates(_binfilt)
+    %       br_days_DTVM - vector of DTVM breakup days
+    %       fr_days_DTVM - vector of DTVM freezeup days
+    %   DTVM_frbr_indexes(_binfilt)
+    %       BR_index - 2D matrix of potential breakup days per location
+    %       FR_index - 2D matrix of potential freezeup days per location
     
     % Controllable parameters
     num_of_thresholds = 500;
@@ -111,6 +115,22 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfil
 end
 
 function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, binfilt)
+    % Calculate NRC freeze-up/breakup for a range of window values
+    % arguments (input)
+    %   out_dir - base output directory path (e.g.
+    %   ./dtvm_outputs/2007_esacci/dtvm/)
+    %   sic_mat - 2D matrix of SIC values for (location, day of year)
+    %   window_range - vector of window values
+    %   binfilt - boolean for whether raw/processed data is used
+    %
+    % arguments (output): None
+    %
+    % loaded variables: None
+    %
+    % saved variables:
+    %   NRC_frbr_p_{window}:
+    %       fr_days_NRC - NRC freeze-up dates for {window} value
+    %       br_days_NRC - NRC breakup dates for {window} value
     
     % Iterate over periods
     for period = window_range
@@ -127,10 +147,10 @@ function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, b
         end
         
         % save the created frbr dates vectors
-        save_name = strcat(save_folder, "NRC_frbr_p_", num2str(period));
+        save_name = save_folder+"NRC_frbr_p_"+num2str(period);
         save(save_name,"fr_days_NRC","br_days_NRC");
         disp("Done creating NRC freeze-up/breakup dates for period of "...
-             + num2str(period));
+             +num2str(period));
          
     end
     
@@ -140,8 +160,19 @@ end
 % --------------------- FrBr Functions -------------------------- %
 % --------------------------------------------------------------- %
 
-% Freeze-up/Breakup dates using NRC definition
 function [frbr_dates] = cts_presence_breakup_freezeup(mat, day_type, period)
+    % Freeze-up/Breakup dates using NRC definition
+    % arguments:
+    %   mat - 2D matrix of SIC values for (location, day of year)
+    %   day_type - string describes whether freeze-up/breakup considered
+    %   period - integer. how many days of continuous presence needed
+    %   
+    % return:
+    %   frbr_dates - vector of freezeup or breakup dates
+    %
+    % loaded variables: None
+    %
+    % saved variables: None
     
     % Controllable parameters
     threshold = 0.15;
@@ -181,8 +212,20 @@ function [frbr_dates] = cts_presence_breakup_freezeup(mat, day_type, period)
     end
 end
 
-% Dynamic Threshold Variability Method algorithm for flagging freeze-up/breakup dates
 function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_thresholds)
+    % Freeze-up/breakup dates using the DTVM algorithm
+    % arguments:
+    %   mat - input matrix, usually should be SIC variability
+    %   num_of_thresholds - integer. number of threshold values for DTVM
+    %
+    % return:
+    %   FR - vector of DTVM freezeup dates
+    %   BR - vector of DTVM breakup dates
+    %   FR_index - 2D matrix of potential DTVM
+    %
+    % loaded variables: None
+    %
+    % saved variables: None
 
     % Freeze-up/Breakup season range
     br_range = [60 306];
@@ -258,7 +301,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
             FR(loc) = quantile(FR_dates_at_loc, 0.25);
         else
             % Set the freeze-up day to the end of the season
-            FR(loc) = fr_range(2);
+            %FR(loc) = fr_range(2);
         end
     end
 end

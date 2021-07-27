@@ -3,7 +3,7 @@
 % ----------------------------------------------------------- %
 
 tic;
-process_data_main_exec("2010_esacci/", 0);
+%process_data_main_exec("2010_esacci/", 0);
 toc;
 
 function [] = process_data_main_exec(data_src, binfilt)
@@ -148,7 +148,7 @@ function [signal] = binarize_signal(signal, cutoff)
     signal = single(signal);
 end
 
-function [signal] = hysteresis(signal)
+function [signal] = hysteresis_binarize(signal)
     % Experimenting with hysteresis behavior
     % 
     % arguments:
@@ -157,17 +157,26 @@ function [signal] = hysteresis(signal)
     % return:
     %   signal
     
+    % set ice presence to true for first day so that it uses the usual
+    % method of ice = True if SIC > 0.15
     ice = 1;
     for day = 1:length(signal)
-        if ice && signal(day) < 0.15
-           ice = 0;
-           signal(day) = 0;
-        elseif ~ice && signal(day) > 0.75
-           ice = 1;
-           signal(day) = 1;
+        if ice
+            if signal(k) < 0.15
+                ice = 0;
+                signal(k) = 0;
+            else
+                ice = 1;
+                signal(k) = 1; 
+            end
         else
-           ice = 1;
-           signal(day) = 1;
+            if signal(k) < 0.75
+                ice = 0;
+                signal(k) = 0;
+            else
+                ice = 1;
+                signal(k) = 1;
+            end
         end
     end
 end

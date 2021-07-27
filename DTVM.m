@@ -6,7 +6,7 @@
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
 tic;
-DTVM_main_exec("2007_esacci/", 1);
+DTVM_main_exec("2008_esacci/", 1);
 toc;
 
 function [] = DTVM_main_exec(data_src, binfilt)
@@ -25,10 +25,10 @@ function [] = DTVM_main_exec(data_src, binfilt)
     % saved variables: None
     
     % output directory for dtvm outputs
-    out_dir = "./dtvm_outputs/"+data_src+"dtvm/";
+    out_dir = "./out/"+data_src+"dtvm/";
     
     % input directory for loading SIC data
-    mats_dir = "./dtvm_outputs/"+data_src+"out/";
+    mats_dir = "./out/"+data_src+"mats/";
     
     % Make the output directory if it doesn't exist
     if not(isfolder(out_dir))
@@ -42,8 +42,9 @@ function [] = DTVM_main_exec(data_src, binfilt)
         load(mats_dir+"sic_mats", "sic_mat", "sic_std_mat");
     end
     
-    % create NRC + DTVM frbr dates -- this is the standard function 
-    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, 15, binfilt);
+    % create NRC + DTVM frbr dates -- this is the standard function
+    window = 10;
+    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, window, binfilt);
     
     % create NRC frbr dates for varying periods
     %window_range = 5:30;
@@ -91,15 +92,12 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfil
     [fr_days_DTVM, br_days_DTVM, BR_index, FR_index]... 
         = DTVM_freezeup_breakup(sic_std_mat, num_of_thresholds);
     
-    disp("Writing freeze-up/breakup data to " + out_dir);
-    
     % if using processed signal, save under a different file name
     if binfilt
         disp("Using binarized and filtered signal for freeze-up/breakup date calculation");
         save(out_dir+"NRC_frbr_dates_binfilt", "br_days_NRC", "fr_days_NRC")
         save(out_dir+"DTVM_frbr_dates_binfilt", "br_days_DTVM", "fr_days_DTVM");
         save(out_dir+"DTVM_frbr_indexes_binfilt", "BR_index", "FR_index");
-        disp("Done creating DTVM freeze-up/breakup dates");
         
     % using regular signal    
     else
@@ -107,11 +105,14 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfil
         save(out_dir+"NRC_frbr_dates", "br_days_NRC", "fr_days_NRC")
         save(out_dir+"DTVM_frbr_dates", "br_days_DTVM", "fr_days_DTVM");
         save(out_dir+"DTVM_frbr_indexes", "BR_index", "FR_index");
-        disp("Done creating DTVM freeze-up/breakup dates");
     end
     
+    disp("Done creating DTVM freeze-up/breakup dates");
+    
     % Save NRC freezeup/breakup dates to file
+    disp("Writing freeze-up/breakup data to " + out_dir);
     save(out_dir+"NRC_frbr_dates", "br_days_NRC", "fr_days_NRC");
+    
 end
 
 function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, binfilt)
@@ -272,7 +273,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
             BR(loc) = quantile(BR_dates_at_loc, 0.75);
         else
             % Set the breakup day to beginning of season
-            BR(loc) = br_range(1);
+            %BR(loc) = br_range(1);
         end
 
         % Calculate possible freeze-up days by counting backwards

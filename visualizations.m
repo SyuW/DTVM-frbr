@@ -3,10 +3,13 @@
 % ------------------------------------------------------------------ %
 
 % Call the execution
-visualization_main_exec("2007_esacci/");
+tic;
+visualization_main_exec("2010_esacci/");
+toc;
 
 function [] = visualization_main_exec(data_src)
     % Entry point of execution of DTVM method
+    %
     % arguments:
     %   data_src - string describing which data source to use
     %       allowed: (2007_esacci/, 2008_esacci/, 
@@ -20,20 +23,21 @@ function [] = visualization_main_exec(data_src)
     %
     % saved variables: None
     
-    out_dir = "./dtvm_outputs/";
+    out_dir = "./out/";
+    work_dir = out_dir+data_src;
     
-    work_dir = strcat(out_dir,data_src);
     % Create maps of freezeup/breakup dates
-    %create_maps_of_frbr_dates(work_dir);
+    create_maps_of_frbr_dates(work_dir, 1);
     
+    %create_landmask(work_dir);
     % Visualize underperforming points within region
     %visualize_region_points(work_dir,"breakup");
     
     % Visualize equally spaced grid points in region
-    %visualize_sampled_points(work_dir, "Foxe_Basin", 0);
+    %visualize_sampled_points(work_dir, "Foxe_Basin", 0, 1);
     
     % Create map of optimal window for NRC freezeup/breakup calc
-    create_map_of_optimal_frbr_windows(work_dir);
+    %create_map_of_optimal_frbr_windows(work_dir);
 end
 
 % ------------------------------------------------------------------ %
@@ -60,7 +64,7 @@ function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
     %
     % saved variables: None
     
-    load(work_dir + "out/coords", "coords");
+    load(work_dir + "mats/coords", "coords");
     
     if binfilt
         load(work_dir + "dtvm/DTVM_frbr_dates_binfilt",...
@@ -118,6 +122,7 @@ end
 
 function [] = create_maps_of_frbr_dates(work_dir, binfilt)
     % Create maps of freeze-up/breakup dates
+    %
     % arguments:
     %   work_dir - path to directory with dtvm outputs
     %   binfilt - boolean for whether processed/raw data is used
@@ -126,7 +131,7 @@ function [] = create_maps_of_frbr_dates(work_dir, binfilt)
     %
     % loaded variables:
     %   coords
-    %       coords - 2D matrix of coordinates of each location
+    %       coords - 2D matrix of coordinates for every location
     %   DTVM_frbr_dates(_binfilt)
     %       br_days_DTVM - vector of DTVM breakup dates
     %       fr_days_DTVM - vector of DTVM freeze-up dates
@@ -136,7 +141,7 @@ function [] = create_maps_of_frbr_dates(work_dir, binfilt)
     %
     % saved variables: None
     
-    load(work_dir+"out/coords", "coords");
+    load(work_dir+"mats/coords", "coords");
     
     if binfilt
         load(work_dir+"dtvm/DTVM_frbr_dates_binfilt", "br_days_DTVM", "fr_days_DTVM");
@@ -147,49 +152,84 @@ function [] = create_maps_of_frbr_dates(work_dir, binfilt)
         load(work_dir+"dtvm/NRC_frbr_dates", "br_days_NRC", "fr_days_NRC");
         save_dir = work_dir + "maps/Raw_maps/";
     end
+    
+    % make the save directory if it doesn't exist
+    if not(isfolder(save_dir))
+        mkdir(save_dir);
+    end
+    
+    pad = 2;
         
-    create_frbr_dates_map(save_dir, coords, fr_days_NRC, "NRC Freeze-up days", [1 365]);
-    create_frbr_dates_map(save_dir, coords, br_days_NRC, "NRC Breakup days", [1 365]);
-    create_frbr_dates_map(save_dir, coords, fr_days_DTVM, "DTVM Freeze-up days", [1 365]);
-    create_frbr_dates_map(save_dir, coords, br_days_DTVM, "DTVM Breakup days", [1 365]);
+    create_frbr_dates_map(save_dir, coords, fr_days_NRC, "NRC Freeze-up days",...
+                          [min(fr_days_NRC)-pad, max(fr_days_NRC)+pad]);
+                      
+    create_frbr_dates_map(save_dir, coords, br_days_NRC, "NRC Breakup days",...
+                          [min(br_days_NRC)-pad, max(br_days_NRC)+pad]);
+                      
+    create_frbr_dates_map(save_dir, coords, fr_days_DTVM, "DTVM Freeze-up days",...
+                          [min(fr_days_DTVM)-pad, max(fr_days_DTVM)+pad]);
+                      
+    create_frbr_dates_map(save_dir, coords, br_days_DTVM, "DTVM Breakup days",...
+                          [min(br_days_DTVM)-pad, max(br_days_DTVM)+pad]);
     
     create_frbr_dates_map(save_dir, coords, br_days_DTVM-br_days_NRC,...
-                          "DTVM-NRC Breakup Difference", [-100 100]);
+                          "DTVM-NRC Breakup Difference", [-30 30]);
+                      
     create_frbr_dates_map(save_dir, coords, fr_days_DTVM-fr_days_NRC,...
-                          "DTVM-NRC Freeze-up Difference", [-100 100]);
+                          "DTVM-NRC Freeze-up Difference", [-30 30]);
                       
     disp("Done creating freeze-up/breakup maps");
 end
 
 function [] = visualize_sampled_points(work_dir, region_name, histograms, binfilt)
     % Create visualizations for regularly spaced points in region
+    %
     % arguments:
     %   work_dir - working directory path
     %   region_name - region name string
     %   histograms - boolean for whether histograms should be gen.
     %   binfilt - whether to use raw or processed data
-    % return
-    % saved variables
-    % loaded variables
+    %
+    % return: None
+    %
+    % loaded variables:
+    %   sic_mats(_binarized_filtered)
+    %       sic_mat
+    %       sic_mean_mat
+    %       sic_std_mat
+    %   NRC_frbr_dates(_binfilt)
+    %       br_days_NRC
+    %       fr_days_NRC
+    %   NRC_frbr_indexes(_binfilt)
+    %       BR_index
+    %       FR_index
+    %
+    % saved variables: None
     
-    load(work_dir+"out/coords","coords");
-    
-    if binfilt
-        load(work_dir+"out/sic_mats_binarized_filtered",...
-                      "sic_mat","sic_mean_mat","sic_std_mat");
-        load(work_dir+"dtvm/DTVM_frbr_dates_binfilt","br_days_DTVM","fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates_binfilt","br_days_NRC","fr_days_NRC");
-        load(work_dir+"dtvm/DTVM_frbr_indexes_binfilt","BR_index","FR_index");
-    else
-        load(work_dir+"out/sic_mats","sic_mat","sic_mean_mat","sic_std_mat");
-        load(work_dir+"dtvm/DTVM_frbr_dates","br_days_DTVM","fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates","br_days_NRC","fr_days_NRC");
-        load(work_dir+"dtvm/DTVM_frbr_indexes","BR_index","FR_index");
-    end
+    load(work_dir+"mats/coords","coords");
     
     [lon_bounds, lat_bounds] = get_region_bounds(region_name);
     
     sampled_pts = sample_points_from_grid(lon_bounds, lat_bounds, 5);
+    
+    if binfilt
+        load(work_dir+"mats/sic_mats_binarized_filtered",...
+                      "sic_mat","sic_mean_mat","sic_std_mat");
+        load(work_dir+"dtvm/DTVM_frbr_dates_binfilt","br_days_DTVM","fr_days_DTVM");
+        load(work_dir+"dtvm/NRC_frbr_dates_binfilt","br_days_NRC","fr_days_NRC");
+        load(work_dir+"dtvm/DTVM_frbr_indexes_binfilt","BR_index","FR_index");
+        save_dir = work_dir+"points/"+region_name+"_binfilt/";
+    else
+        load(work_dir+"mats/sic_mats","sic_mat","sic_mean_mat","sic_std_mat");
+        load(work_dir+"dtvm/DTVM_frbr_dates","br_days_DTVM","fr_days_DTVM");
+        load(work_dir+"dtvm/NRC_frbr_dates","br_days_NRC","fr_days_NRC");
+        load(work_dir+"dtvm/DTVM_frbr_indexes","BR_index","FR_index");
+        save_dir = work_dir+"points/"+region_name+"/";
+    end
+    
+    if not(isfolder(save_dir))
+        mkdir(save_dir);
+    end
     
     % Find closest coords and create visualization for each point
     for k = 1:length(sampled_pts)
@@ -226,11 +266,6 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms, binfil
             frbr_days = [br_days_NRC(indx),fr_days_NRC(indx),...
                          br_days_DTVM(indx),fr_days_DTVM(indx)];
             
-            save_dir = work_dir+"points/"+region_name+"_binfilt/";
-            if not(isfolder(save_dir, "dir"))
-                mkdir(save_dir);
-            end
-            
             savename = save_dir+"visualization_at_"+lon+"_"+lat+".png";
 
             % Visualize timeseries and freezeup/breakup dates at chosen
@@ -244,15 +279,15 @@ end
 function [] = visualize_region_points(work_dir, day_type, region_name, binfilt)
     % Not recommended for use
     
-    load(work_dir+"out/coords","coords");
+    load(work_dir+"mats/coords","coords");
     
     if binfilt
-        load(work_dir+"out/sic_mats_binarized_filtered",...
+        load(work_dir+"mats/sic_mats_binarized_filtered",...
                       "sic_mat","sic_mean_mat","sic_std_mat");
         load(work_dir+"dtvm/DTVM_frbr_dates_binfilt","br_days_DTVM","fr_days_DTVM");
         load(work_dir+"dtvm/NRC_frbr_dates_binfilt","br_days_NRC","fr_days_NRC");
     else
-        load(work_dir+"out/sic_mats","sic_mat","sic_mean_mat","sic_std_mat");
+        load(work_dir+"mats/sic_mats","sic_mat","sic_mean_mat","sic_std_mat");
         load(work_dir+"dtvm/DTVM_frbr_dates","br_days_DTVM","fr_days_DTVM");
         load(work_dir+"dtvm/NRC_frbr_dates","br_days_NRC","fr_days_NRC");
     end
@@ -317,6 +352,7 @@ end
 
 function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, location, savename)
     % Visualize time-series and freeze-up dates at a location
+    %
     % arguments:
     %   sic_ts - vector describing time series of SIC values
     %   sic_mean_ts - vector desribing time series of mean SIC values
@@ -337,7 +373,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     % SIC  
     sic_ax = subplot(3,2,2);
     hold(sic_ax,"on");
-    plot(sic_ax,1:365,sic_ts,"Color","b","DisplayName","Signal");
+    plot(sic_ax,1:length(sic_ts),sic_ts,"Color","b","DisplayName","Signal");
     plot(sic_ax,[frbr_days(1),frbr_days(1)],[0 1],"Color","r","DisplayName","NRC Breakup");
     plot(sic_ax,[frbr_days(2),frbr_days(2)],[0 1],"Color","g","DisplayName","NRC Freezeup");
     plot(sic_ax,[frbr_days(3),frbr_days(3)],[0 1],"Color","c","DisplayName","DTVM Breakup");
@@ -349,7 +385,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     % SIC mean 
     sic_mean_ax = subplot(3,2,4);
     hold(sic_mean_ax,"on");
-    plot(sic_mean_ax,1:365,sic_mean_ts,"Color","b","DisplayName","Signal");
+    plot(sic_mean_ax,1:length(sic_mean_ts),sic_mean_ts,"Color","b","DisplayName","Signal");
     plot(sic_mean_ax,[frbr_days(1),frbr_days(1)],[0 1],"Color","r","DisplayName","NRC Breakup");
     plot(sic_mean_ax,[frbr_days(2),frbr_days(2)],[0 1],"Color","g","DisplayName","NRC Freezeup");
     plot(sic_mean_ax,[frbr_days(3),frbr_days(3)],[0 1],"Color","c","DisplayName","DTVM Breakup");
@@ -361,7 +397,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     % SIC std deviation
     sic_std_ax = subplot(3,2,[5 6]);
     hold(sic_std_ax,"on");
-    plot(sic_std_ax,1:365,sic_std_ts,"Color","b","DisplayName","Signal");
+    plot(sic_std_ax,1:length(sic_std_ts),sic_std_ts,"Color","b","DisplayName","Signal");
     plot(sic_std_ax,[frbr_days(1),frbr_days(1)],[0 1],"Color","r","DisplayName","NRC Breakup");
     plot(sic_std_ax,[frbr_days(2),frbr_days(2)],[0 1],"Color","g","DisplayName","NRC Freezeup");
     plot(sic_std_ax,[frbr_days(3),frbr_days(3)],[0 1],"Color","c","DisplayName","DTVM Breakup");
@@ -372,7 +408,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     
     legend(sic_std_ax,"Location","best");
 
-    % Create map
+    % Create map of region
     map_ax = subplot(3,2,[1 3]);
 
     axesm("mercator","MapLatLimit",[50 70],"MapLonLimit",[-100 -50]);
@@ -392,26 +428,47 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     % Title the whole visualization
     lon = num2str(lon);
     lat = num2str(lat);
-    title(["SIC at (",lon,",",lat,")"]);
+    title("SIC at ("+lon+","+lat+")");
     
     saveas(map_ax, savename);
     clf;
 end
 
-function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title, color_lims)
+function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title,...
+                                    color_lims)
+    % Create map of freezeup or breakup dates
+    %
+    % arguments:
+    %   save_dir - save directory for plot .png
+    %   coords - 2D matrix of all coordinates
+    %   dates - freeze-up or breakup dates to plot
+    %   plot_title - string for title of plot
+    %   cmap_name - variable for plot color map
+    %   color_lims - vector for limits of colorbar
+    %
+    % return: None
+    % saved variables: None
+    % loaded variables: None
     
     figure("visible","off");
 
     lons = coords(:,1);
     lats = coords(:,2);
-
-    scatter(lons,lats,10,dates,"filled");
+    
+    % hard coded marker size for now
+    if size(coords, 1) > 20000
+        marker_size = 3;
+    else
+        marker_size = 10;
+    end
+    
+    geoscatter(lats,lons,marker_size,dates,"filled");
+    geobasemap colorterrain;
+    
     colorbar;
     caxis(color_lims);
         
     title(plot_title);
-    xlabel("Longitude");
-    ylabel("Latitude");
     save_fname = save_dir + plot_title + ".png";
     
     disp("Saving freezeup/breakup map at path: " + save_fname);
@@ -421,8 +478,7 @@ function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title, color_l
 end
 
 function [] = plot_histogram(save_dir, dates_index, lon, lat, flagged_date, day_type_str)
-    % Plot histogram of potential freezeup/breakup dates determined using
-    % DTVM
+    % Plot histogram of DTVM potential freezeup/breakup dates
     %
     % arguments:
     %   save_dir - directory path to save at
@@ -510,8 +566,8 @@ function [lon_bounds, lat_bounds] = get_region_bounds(name)
     regions_dict = containers.Map(region_names, regions);
 
     select_region = regions_dict(name);
-    lat_bounds = select_region(1);
-    lon_bounds = select_region(2);
+    lat_bounds = select_region{1};
+    lon_bounds = select_region{2};
 end
 
 function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
@@ -545,4 +601,34 @@ function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
     
     % Flatten to 1D array
     points = vertcat(points{:});
+end
+
+function [] = create_landmask(work_dir)
+    % create landmask array
+    %
+    % arguments:
+    %   work_dir - 
+    %   grid_spacing - scalar
+    %
+    % return:
+    %   landmask - 2D logical matrix of 0 - ocean and 1 - land
+    
+    load(work_dir+"mats/coords", "coords");
+    
+    avg_lat_step = mean(diff(coords(:,1)));
+    avg_lon_step = mean(diff(coords(:,2)));
+    
+    lon_min = min(coords(:,1));
+    lon_max = max(coords(:,1));
+    lat_min = min(coords(:,2));
+    lat_max = max(coords(:,2));
+    
+    lon_sample = lon_min:0.2:lon_max;
+    lat_sample = lat_min:0.2:lat_max;
+    
+    [lons, lats] = meshgrid(lat_sample, lon_sample);
+    land = landmask(lats, lons, 'North and South America');
+    
+    keyboard;
+    
 end

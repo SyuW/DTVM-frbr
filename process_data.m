@@ -8,6 +8,7 @@ toc;
 
 function [] = process_data_main_exec(data_src, binfilt)
     % Entry point of execution when process_data.m is run
+    %
     % arguments:
     %   data_src - string describing which data source to use
     %       allowed: (2007_esacci/, 2008_esacci/, 
@@ -66,6 +67,7 @@ end
 
 function [sic_mat] = create_sic_mat(data_dir)
     % Create sea ice concentration matrix from .dat files
+    %
     % arguments:
     %   data_dir - path string to data source
     %       example: './data/esacci_sic/2007_esacci/'
@@ -103,6 +105,7 @@ end
 
 function [coords] = get_all_coordinates(data_dir)
     % Get all coordinates
+    %
     % arguments:
     %   data_dir - path string to data source
     %       example: './data/esacci_sic/2007_esacci/'
@@ -118,6 +121,7 @@ end
 
 function [signal] = filter_signal(signal, window_size, dim)
     % Get all coordinates
+    %
     % arguments:
     %   signal - 1D matrix representing signal to be filtered
     %   window_size - order of the median filter
@@ -132,13 +136,16 @@ end
 
 function [signal] = binarize_signal(signal, cutoff)
     % Binarize signal at cutoff
+    %
     % arguments:
-    %   signal - 1D matrix representing signal to be binarized
+    %   signal - vector representing signal to be binarized
     %   cutoff - cutoff value
     %
     % return:
-    %   signal - 1D matrix representing binarized signal
+    %   signal - vector representing binarized signal
     
     signal = signal > cutoff;
     signal = single(signal);
 end
+
+function [signal] = hysteresis(signal)

@@ -149,3 +149,26 @@ function [signal] = binarize_signal(signal, cutoff)
 end
 
 function [signal] = hysteresis(signal)
+    % Experimenting with hysteresis behavior
+    % 
+    % arguments:
+    %   signal
+    %
+    % return:
+    %   signal
+    
+    ice = 1;
+    for day = 1:length(signal)
+        if ice && signal(day) < 0.15
+           ice = 0;
+           signal(day) = 0;
+        elseif ~ice && signal(day) > 0.75
+           ice = 1;
+           signal(day) = 1;
+        else
+           ice = 1;
+           signal(day) = 1;
+        end
+    end
+end
+           

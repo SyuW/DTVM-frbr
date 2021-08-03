@@ -6,10 +6,10 @@
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
 tic;
-DTVM_main_exec("2008_esacci/", 1);
+DTVM_main_exec("2007_esacci/", "apple");
 toc;
 
-function [] = DTVM_main_exec(data_src, binfilt)
+function [] = DTVM_main_exec(data_src, process_type)
     % Entry point of execution of DTVM method
     % arguments:
     %   data_src - string describing which data source to use
@@ -36,15 +36,20 @@ function [] = DTVM_main_exec(data_src, binfilt)
     end
     
     % Load the sea ice concentration matrix created by process_data.m
-    if binfilt
+    if process_type == "binfilt"
         load(mats_dir+"sic_mats_binarized_filtered", "sic_mat", "sic_std_mat");
-    else
+    elseif process_type == "hysteresis"
+        load(mats_dir+"sic_mats_hysteresis", "sic_mat", "sic_std_mat");
+    elseif process_type == "raw"
         load(mats_dir+"sic_mats", "sic_mat", "sic_std_mat");
+    else
+        error(['Error. %s is not a valid processing type. Please choose from ',...
+               'raw, binfilt, hysteresis'], process_type);
     end
     
     % create NRC + DTVM frbr dates -- this is the standard function
     window = 10;
-    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, window, binfilt);
+    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, window, process_type);
     
     % create NRC frbr dates for varying periods
     %window_range = 5:30;
@@ -228,9 +233,11 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
     %
     % saved variables: None
 
-    % Freeze-up/Breakup season range
-    br_range = [60 306];
-    fr_range = [245 365];
+    % Breakup season range
+    br_range = [60 258];
+    
+    % Freeze-up season range
+    fr_range = [259 365];
     
     % Number of coordinates
     num_of_locations = size(mat, 1);
@@ -253,8 +260,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
                 % Iterate over days to find when threshold exceeded
                 % "Jump over fluctuations for dates earlier than start of breakup season"
                 for d = br_range(1):365-1
-                    threshold_exceeded = (mat(loc,d) >= threshold) ||...
-                                         (mat(loc,d) > threshold && mat(loc,d+1) < threshold);
+                    threshold_exceeded = (mat(loc,d) >= threshold);
                     if threshold_exceeded
                         BR_index(loc,th)=d;
                         break
@@ -282,8 +288,7 @@ function [FR,BR,BR_index,FR_index] = DTVM_freezeup_breakup(mat, num_of_threshold
             if isnan(FR_index(loc, th))
                 % Iterate backwards over days starting from freeze-up season end
                 for df = 365:-1:2
-                    threshold_exceeded = (mat(loc,df) >= threshold) ||...
-                                         (mat(loc,df) > threshold && mat(loc,df-1) < threshold);
+                    threshold_exceeded = (mat(loc,df) >= threshold);
                     if threshold_exceeded
                         FR_index(loc,th)=df;
                         break

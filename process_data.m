@@ -3,10 +3,10 @@
 % ----------------------------------------------------------- %
 
 tic;
-%process_data_main_exec("2010_esacci/", 0);
+process_data_main_exec("2008_esacci/", "hysteresis");
 toc;
 
-function [] = process_data_main_exec(data_src, binfilt)
+function [] = process_data_main_exec(data_src, process_type)
     % Entry point of execution when process_data.m is run
     %
     % arguments:
@@ -34,15 +34,23 @@ function [] = process_data_main_exec(data_src, binfilt)
     % Create sea ice concentration matrix
     sic_mat = create_sic_mat(data_directory);
     
-    % Additional processing
-    if binfilt
+    % binarize and apply filtering
+    if process_type == "binfilt"
         sic_mat = binarize_signal(sic_mat, 0.15);
         sic_mat = filter_signal(sic_mat, 5, 2);
-        mats_save_path = output_directory + "sic_mats";
-        disp("Done constructing SIC matrix from data files");
-    else
+        mats_save_path = output_directory + "sic_mats_binarized_filtered";
+    % try using hysteresis
+    elseif process_type == "hysteresis"
+        for row = 1:size(sic_mat, 1)
+            sic_mat(row,:) = hysteresis_binarize(sic_mat(row,:));
+        end
+        mats_save_path = output_directory + "sic_mats_hysteresis";
+    % don't do anything    
+    elseif process_type == "raw"
         mats_save_path = output_directory + "sic_mats";
     end
+    
+    disp("Done constructing SIC matrix from data files");  
         
     % Calculate moving mean/standard deviation of signal
     calc_window = 5;
@@ -56,7 +64,7 @@ function [] = process_data_main_exec(data_src, binfilt)
     
     % Get coordinate locations of all points
     coords = get_all_coordinates(data_directory);
-    coords_save_path = strcat(output_directory, "coords");
+    coords_save_path = output_directory+"coords";
     disp("Writing coordinates to file");
     save(coords_save_path,"coords");
 end
@@ -79,7 +87,7 @@ function [sic_mat] = create_sic_mat(data_dir)
     dir_sic = dir(data_dir+"*sic*");
     
     % Get number of locations
-    num_of_locations = size(load([data_dir dir_sic(1).name]),1);
+    num_of_locations = size(load(data_dir+dir_sic(1).name),1);
     
     % prellocating SIC matrix
     sic_mat = nan(num_of_locations, 365);
@@ -92,7 +100,7 @@ function [sic_mat] = create_sic_mat(data_dir)
         t=datetime(fdate,"InputFormat","yyyyMMdd");
         doy=day(t,"dayofyear");
 
-        tmpdata=load([data_dir fname]);
+        tmpdata=load(data_dir+fname);
         current_day_sic=tmpdata(:,3);
         
         sic_mat(:,doy)=current_day_sic;
@@ -115,7 +123,7 @@ function [coords] = get_all_coordinates(data_dir)
     
     dir_sic = dir(data_dir+"*sic*");
     % grabbing coordinates
-    first_file = load([data_dir dir_sic(1).name]);
+    first_file = load(data_dir+dir_sic(1).name);
     coords = first_file(:,[1 2]);
 end
 
@@ -157,25 +165,26 @@ function [signal] = hysteresis_binarize(signal)
     % return:
     %   signal
     
-    % set ice presence to true for first day so that it uses the usual
-    % method of ice = True if SIC > 0.15
     ice = 1;
+    % got through every day in the time series signal
     for day = 1:length(signal)
+        % if it's ice, convert to water if SIC < 0.15
         if ice
-            if signal(k) < 0.15
+            if signal(day) < 0.15
                 ice = 0;
-                signal(k) = 0;
+                signal(day) = 0;
             else
                 ice = 1;
-                signal(k) = 1; 
+                signal(day) = 1; 
             end
+        % if it became water, only convert back to ice if SIC > 0.75
         else
-            if signal(k) < 0.75
+            if signal(day) < 0.75
                 ice = 0;
-                signal(k) = 0;
+                signal(day) = 0;
             else
                 ice = 1;
-                signal(k) = 1;
+                signal(day) = 1;
             end
         end
     end

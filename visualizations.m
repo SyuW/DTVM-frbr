@@ -4,10 +4,10 @@
 
 % Call the execution
 tic;
-visualization_main_exec("2010_esacci/");
+visualization_main_exec("2007_esacci/");
 toc;
 
-function [] = visualization_main_exec(data_src)
+function [] = visualization_main_exec(data_src, process_type)
     % Entry point of execution of DTVM method
     %
     % arguments:
@@ -27,7 +27,7 @@ function [] = visualization_main_exec(data_src)
     work_dir = out_dir+data_src;
     
     % Create maps of freezeup/breakup dates
-    create_maps_of_frbr_dates(work_dir, 1);
+    create_maps_of_frbr_dates(work_dir, process_type);
     
     %create_landmask(work_dir);
     % Visualize underperforming points within region
@@ -432,6 +432,22 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     
     saveas(map_ax, savename);
     clf;
+end
+
+function [] = create_hist_and_plot(sic_std, dates_index, location, savename)
+    % create histogram + plot of variability signal
+    % 
+    % arguments:
+    %   sic_std - 
+    %   dates -
+    %   coords -
+    %   savename -
+    %
+    % return: None
+    % saved variables: None
+    % loaded variables: None
+    
+    figure("visible","off");
 end
 
 function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title,...

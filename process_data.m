@@ -3,7 +3,7 @@
 % ----------------------------------------------------------- %
 
 tic;
-process_data_main_exec("2008_esacci/", "hysteresis");
+process_data_main_exec("2007_esacci/", "hysteresis");
 toc;
 
 function [] = process_data_main_exec(data_src, process_type)
@@ -23,50 +23,65 @@ function [] = process_data_main_exec(data_src, process_type)
     %   coords - 2D matrix of coordinates (one coord per row)
     
     % output/data paths based on data source choice
-    output_directory = "./out/" + data_src + "mats/";
-    data_directory = "./data/esacci_sic/" + data_src;
+    out_dir = "./out/" + data_src + process_type + "/mats/";
+    data_dir = "./data/esacci_sic/" + data_src;
     
     % Make the output directory if it doesn't exist
-    if not(isfolder(output_directory))
-        mkdir(output_directory);
+    if not(isfolder(out_dir))
+        mkdir(out_dir);
     end
     
     % Create sea ice concentration matrix
-    sic_mat = create_sic_mat(data_directory);
+    sic_mat = create_sic_mat(data_dir);
+    disp("Done constructing initial SIC matrix from data files");
+    disp("Writing initial SIC matrix to file")
+    save(out_dir+"sic","sic_mat");
     
-    % binarize and apply filtering
-    if process_type == "binfilt"
-        sic_mat = binarize_signal(sic_mat, 0.15);
-        sic_mat = filter_signal(sic_mat, 5, 2);
-        mats_save_path = output_directory + "sic_mats_binarized_filtered";
+    % create second array for filtering
+    filt_sic = sic_mat(:,:);
+    
+    % don't do anything to the signal    
+    if process_type == "raw"
+        disp("Not doing any processing");
+        
+    % binarize and apply filtering    
+    elseif process_type == "binfilt"
+        disp("Binarizing and median filtering SIC signal");
+        filt_sic = binarize_signal(filt_sic, 0.15);
+        filt_sic = filter_signal(filt_sic, 5, 2);
+        
     % try using hysteresis
     elseif process_type == "hysteresis"
-        for row = 1:size(sic_mat, 1)
-            sic_mat(row,:) = hysteresis_binarize(sic_mat(row,:));
+        disp("Applying hysteresis to SIC signal");
+        % Apply hysteresis to time series
+        for row = 1:size(filt_sic, 1)
+            filt_sic(row,:) = hysteresis_binarize(filt_sic(row,:));
         end
-        mats_save_path = output_directory + "sic_mats_hysteresis";
-    % don't do anything    
-    elseif process_type == "raw"
-        mats_save_path = output_directory + "sic_mats";
+        
+    % invalid argument
+    else
+        error("Invalid process type %s", process_type)
+ 
     end
     
-    disp("Done constructing SIC matrix from data files");  
-        
+    disp("Done filtering");
+    
     % Calculate moving mean/standard deviation of signal
     calc_window = 5;
-    sic_mean_mat = movmean(sic_mat, [calc_window-1, 0], 2);
-    sic_std_mat = movstd(sic_mat, [calc_window-1, 0], 0, 2);
+    sic_mean_mat = movmean(filt_sic, [calc_window-1, 0], 2);
+    sic_std_mat = movstd(filt_sic, [calc_window-1, 0], 0, 2);
     disp("Done calculating moving mean/std deviation of signal");
     
     % Write all sea ice concentration related matrices to file
     disp(strcat("Writing SIC matrices to file"));
-    save(mats_save_path,"sic_std_mat","sic_mean_mat","sic_mat");
+    save(out_dir+"filt_sic", "filt_sic");
+    save(out_dir+"sic_std", "sic_std_mat");
+    save(out_dir+"sic_mean","sic_mean_mat");
     
     % Get coordinate locations of all points
-    coords = get_all_coordinates(data_directory);
-    coords_save_path = output_directory+"coords";
+    coords = get_all_coordinates(data_dir);
     disp("Writing coordinates to file");
-    save(coords_save_path,"coords");
+    save(out_dir+"coords","coords");
 end
 
 % ------------------------------------------------------------- %

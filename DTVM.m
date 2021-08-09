@@ -6,7 +6,9 @@
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
 tic;
-DTVM_main_exec("2007_esacci/", "apple");
+DTVM_main_exec("2007_esacci/", "raw");
+DTVM_main_exec("2007_esacci/", "binfilt");
+DTVM_main_exec("2007_esacci/", "hysteresis");
 toc;
 
 function [] = DTVM_main_exec(data_src, process_type)
@@ -24,43 +26,46 @@ function [] = DTVM_main_exec(data_src, process_type)
     %
     % saved variables: None
     
+    % type checking
+    valid_process_types = ["binfilt","hysteresis","raw"];
+    if ~any(strcmp(valid_process_types, process_type))
+        error(['Error. %s is not a valid processed type.',...
+               'Please choose from raw, binfilt, hysteresis'], process_type);
+    end
+    
+    disp("Starting freeze-up/breakup calculation for process_type: %s", process_type);
+    
     % output directory for dtvm outputs
-    out_dir = "./out/"+data_src+"dtvm/";
+    out_dir = "./out/"+data_src+process_type+"/dtvm/";
     
     % input directory for loading SIC data
-    mats_dir = "./out/"+data_src+"mats/";
+    mats_dir = "./out/"+data_src+process_type+"/mats/";
     
     % Make the output directory if it doesn't exist
     if not(isfolder(out_dir))
         mkdir(out_dir);
     end
     
-    % Load the sea ice concentration matrix created by process_data.m
-    if process_type == "binfilt"
-        load(mats_dir+"sic_mats_binarized_filtered", "sic_mat", "sic_std_mat");
-    elseif process_type == "hysteresis"
-        load(mats_dir+"sic_mats_hysteresis", "sic_mat", "sic_std_mat");
-    elseif process_type == "raw"
-        load(mats_dir+"sic_mats", "sic_mat", "sic_std_mat");
-    else
-        error(['Error. %s is not a valid processing type. Please choose from ',...
-               'raw, binfilt, hysteresis'], process_type);
-    end
-    
+    load(mats_dir+"sic", "sic_mat");
+    load(mats_dir+"filt_sic", "filt_sic");
+    load(mats_dir+"sic_std", "sic_std_mat");
+
     % create NRC + DTVM frbr dates -- this is the standard function
-    window = 10;
-    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, window, process_type);
+    period = 10;
+    create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, filt_sic, period);
     
     % create NRC frbr dates for varying periods
     %window_range = 5:30;
     %create_NRC_frbr_for_window_range(out_dir, sic_mat, 5:30, binfilt);
+    
+    disp("Done freeze-up/breakup calculation for process_type: %s", process_type);
 end
 
 % ----------------------------------------------------------------------- %
 % --------------------- Data processing Functions ----------------------- %
 % ----------------------------------------------------------------------- %
 
-function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfilt)
+function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, filt_sic, period)
     % Entry point of execution of DTVM method
     % arguments (input):
     %   out_dir - base output directory path (e.g.
@@ -68,7 +73,6 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfil
     %   sic_mat - matrix containing SIC signals (1D arrays) for each
     %   location
     %   sic_std_mat - matrix containing SIC variability signals
-    %   binfilt - boolean for whether processed/raw data is being used
     %
     % arguments (output): None
     %
@@ -89,35 +93,21 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic_mat, sic_std_mat, period, binfil
     num_of_thresholds = 500;
     
     % Calculate NRC freezeup/breakup dates vector
-    fr_days_NRC = cts_presence_breakup_freezeup(sic_mat, "Freeze-up", period);
-    br_days_NRC = cts_presence_breakup_freezeup(sic_mat, "Breakup", period);
+    fr_days_NRC = NRC_freezeup_breakup(sic_mat, "Freeze-up", period);
+    br_days_NRC = NRC_freezeup_breakup(sic_mat, "Breakup", period);
+    
     disp("Done creating NRC freeze-up/breakup dates");
     
     % Calculate DTVM freezeup/breakup dates vectors/indexes
     [fr_days_DTVM, br_days_DTVM, BR_index, FR_index]... 
         = DTVM_freezeup_breakup(sic_std_mat, num_of_thresholds);
     
-    % if using processed signal, save under a different file name
-    if binfilt
-        disp("Using binarized and filtered signal for freeze-up/breakup date calculation");
-        save(out_dir+"NRC_frbr_dates_binfilt", "br_days_NRC", "fr_days_NRC")
-        save(out_dir+"DTVM_frbr_dates_binfilt", "br_days_DTVM", "fr_days_DTVM");
-        save(out_dir+"DTVM_frbr_indexes_binfilt", "BR_index", "FR_index");
-        
-    % using regular signal    
-    else
-        disp("Using raw signal for freeze-up/breakup date calculation");
-        save(out_dir+"NRC_frbr_dates", "br_days_NRC", "fr_days_NRC")
-        save(out_dir+"DTVM_frbr_dates", "br_days_DTVM", "fr_days_DTVM");
-        save(out_dir+"DTVM_frbr_indexes", "BR_index", "FR_index");
-    end
-    
-    disp("Done creating DTVM freeze-up/breakup dates");
-    
-    % Save NRC freezeup/breakup dates to file
-    disp("Writing freeze-up/breakup data to " + out_dir);
-    save(out_dir+"NRC_frbr_dates", "br_days_NRC", "fr_days_NRC");
-    
+    % Save freeze-up/breakup dates to output directory
+    save(out_dir+"NRC_frbr_dates", "br_days_NRC", "fr_days_NRC")
+    save(out_dir+"DTVM_frbr_dates", "br_days_DTVM", "fr_days_DTVM");
+    save(out_dir+"DTVM_frbr_indexes", "BR_index", "FR_index");
+      
+    disp("Done saving DTVM freeze-up/breakup dates");   
 end
 
 function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, binfilt)
@@ -142,8 +132,8 @@ function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range, b
     for period = window_range
     
         % Calculate freeze-up/breakup days using the NRC method for period
-        fr_days_NRC = cts_presence_breakup_freezeup(sic_mat, "Freeze-up", period);
-        br_days_NRC = cts_presence_breakup_freezeup(sic_mat, "Breakup", period);
+        fr_days_NRC = NRC_freezeup_breakup(sic_mat, "Freeze-up", period);
+        br_days_NRC = NRC_freezeup_breakup(sic_mat, "Breakup", period);
         
         % save to a different folder if using processed signal
         if binfilt
@@ -166,7 +156,7 @@ end
 % --------------------- FrBr Functions -------------------------- %
 % --------------------------------------------------------------- %
 
-function [frbr_dates] = cts_presence_breakup_freezeup(mat, day_type, period)
+function [frbr_dates] = NRC_freezeup_breakup(mat, day_type, period)
     % Freeze-up/Breakup dates using NRC definition
     % arguments:
     %   mat - 2D matrix of SIC values for (location, day of year)

@@ -4,7 +4,9 @@
 
 % Call the execution
 tic;
-visualization_main_exec("2007_esacci/");
+visualization_main_exec("2007_esacci/", "binfilt");
+%visualization_main_exec("2007_esacci/", "raw");
+%visualization_main_exec("2007_esacci/", "hysteresis");
 toc;
 
 function [] = visualization_main_exec(data_src, process_type)
@@ -23,11 +25,11 @@ function [] = visualization_main_exec(data_src, process_type)
     %
     % saved variables: None
     
-    out_dir = "./out/";
-    work_dir = out_dir+data_src;
+    % set working directory to generate visualizations inside
+    work_dir = "./out/"+data_src+process_type+"/";
     
     % Create maps of freezeup/breakup dates
-    create_maps_of_frbr_dates(work_dir, process_type);
+    create_maps_of_frbr_dates(work_dir);
     
     %create_landmask(work_dir);
     % Visualize underperforming points within region
@@ -120,8 +122,8 @@ function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
                           "Freezeup optimal NRC windows", [5 30]);
 end
 
-function [] = create_maps_of_frbr_dates(work_dir, binfilt)
-    % Create maps of freeze-up/breakup dates
+function [] = create_maps_of_frbr_dates(work_dir)
+    % Create maps of freeze-up/breakup dates and differences
     %
     % arguments:
     %   work_dir - path to directory with dtvm outputs
@@ -141,43 +143,55 @@ function [] = create_maps_of_frbr_dates(work_dir, binfilt)
     %
     % saved variables: None
     
+    % load coordinates
     load(work_dir+"mats/coords", "coords");
     
-    if binfilt
-        load(work_dir+"dtvm/DTVM_frbr_dates_binfilt", "br_days_DTVM", "fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates_binfilt", "br_days_NRC", "fr_days_NRC");
-        save_dir = work_dir + "maps/Binarized_filtered_maps/";
-    else
-        load(work_dir+"dtvm/DTVM_frbr_dates", "br_days_DTVM", "fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates", "br_days_NRC", "fr_days_NRC");
-        save_dir = work_dir + "maps/Raw_maps/";
-    end
+    % load freeze-up/breakup data
+    load(work_dir+"dtvm/DTVM_frbr_dates", "br_days_DTVM", "fr_days_DTVM");
+    load(work_dir+"dtvm/NRC_frbr_dates", "br_days_NRC", "fr_days_NRC");
     
-    % make the save directory if it doesn't exist
+    % define and make the save directory if it doesn't exist
+    save_dir = work_dir + "maps/";
     if not(isfolder(save_dir))
         mkdir(save_dir);
     end
     
     pad = 2;
-        
-    create_frbr_dates_map(save_dir, coords, fr_days_NRC, "NRC Freeze-up days",...
-                          [min(fr_days_NRC)-pad, max(fr_days_NRC)+pad]);
-                      
-    create_frbr_dates_map(save_dir, coords, br_days_NRC, "NRC Breakup days",...
-                          [min(br_days_NRC)-pad, max(br_days_NRC)+pad]);
-                      
-    create_frbr_dates_map(save_dir, coords, fr_days_DTVM, "DTVM Freeze-up days",...
-                          [min(fr_days_DTVM)-pad, max(fr_days_DTVM)+pad]);
-                      
-    create_frbr_dates_map(save_dir, coords, br_days_DTVM, "DTVM Breakup days",...
-                          [min(br_days_DTVM)-pad, max(br_days_DTVM)+pad]);
     
-    create_frbr_dates_map(save_dir, coords, br_days_DTVM-br_days_NRC,...
-                          "DTVM-NRC Breakup Difference", [-30 30]);
-                      
-    create_frbr_dates_map(save_dir, coords, fr_days_DTVM-fr_days_NRC,...
-                          "DTVM-NRC Freeze-up Difference", [-30 30]);
-                      
+    % NRC freeze-up dates map
+    NRC_fr_dates_map = create_frbr_dates_map(coords, fr_days_NRC,... 
+        "NRC Freeze-up dates",[min(fr_days_NRC)-pad, max(fr_days_NRC)+pad]);
+    
+    % NRC breakup dates map
+    NRC_br_dates_map = create_frbr_dates_map(coords, br_days_NRC,... 
+        "NRC Breakup dates",[min(br_days_NRC)-pad, max(br_days_NRC)+pad]);
+    
+    % DTVM freeze-up dates map                   
+    DTVM_fr_dates_map = create_frbr_dates_map(coords, fr_days_DTVM,...
+        "DTVM Freeze-up days",[min(fr_days_DTVM)-pad, max(fr_days_DTVM)+pad]);
+    
+    % DTVM breakup dates map
+    DTVM_br_dates_map = create_frbr_dates_map(coords, br_days_DTVM,...
+        "DTVM Breakup days",[min(br_days_DTVM)-pad, max(br_days_DTVM)+pad]);
+    
+    c_abs_lim = 20;
+    
+    % Breakup differences map
+    br_diffs_map = create_frbr_dates_map(coords, br_days_DTVM-br_days_NRC,...
+        "DTVM-NRC Breakup Difference", [-c_abs_lim c_abs_lim]);
+    
+    % Freeze-up differences map
+    fr_diffs_map = create_frbr_dates_map(coords, fr_days_DTVM-fr_days_NRC,...
+        "DTVM-NRC Freeze-up Difference", [-c_abs_lim c_abs_lim]);
+    
+    % Saving
+    saveas(NRC_fr_dates_map,save_dir+"NRC_freezeup_dates.png");
+    saveas(NRC_br_dates_map,save_dir+"NRC_breakup_dates.png");
+    saveas(DTVM_fr_dates_map,save_dir+"DTVM_freezeup_dates.png");
+    saveas(DTVM_br_dates_map,save_dir+"DTVM_breakup_dates.png");
+    saveas(br_diffs_map,save_dir+"Breakup_differences.png");
+    saveas(fr_diffs_map,save_dir+"Freezeup_difference.png");
+                 
     disp("Done creating freeze-up/breakup maps");
 end
 
@@ -382,6 +396,8 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     ylabel(sic_ax,"SIC");
     xlim(sic_ax, [0 365]);
     
+    %a = area(0.15);
+    
     % SIC mean 
     sic_mean_ax = subplot(3,2,4);
     hold(sic_mean_ax,"on");
@@ -450,23 +466,21 @@ function [] = create_hist_and_plot(sic_std, dates_index, location, savename)
     figure("visible","off");
 end
 
-function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title,...
-                                    color_lims)
+function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
     % Create map of freezeup or breakup dates
     %
     % arguments:
-    %   save_dir - save directory for plot .png
     %   coords - 2D matrix of all coordinates
     %   dates - freeze-up or breakup dates to plot
     %   plot_title - string for title of plot
     %   cmap_name - variable for plot color map
     %   color_lims - vector for limits of colorbar
     %
-    % return: None
+    % return: fig - figure object of map
     % saved variables: None
     % loaded variables: None
     
-    figure("visible","off");
+    fig = figure("visible","off");
 
     lons = coords(:,1);
     lats = coords(:,2);
@@ -485,12 +499,6 @@ function [] = create_frbr_dates_map(save_dir, coords, dates, plot_title,...
     caxis(color_lims);
         
     title(plot_title);
-    save_fname = save_dir + plot_title + ".png";
-    
-    disp("Saving freezeup/breakup map at path: " + save_fname);
-    saveas(gca, save_fname);
-    
-    clf;
 end
 
 function [] = plot_histogram(save_dir, dates_index, lon, lat, flagged_date, day_type_str)

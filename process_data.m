@@ -3,8 +3,29 @@
 % ----------------------------------------------------------- %
 
 tic;
-process_data_main_exec("2007_esacci/", "hysteresis");
+%process_data_main_exec("2007_esacci/", "binfilt");
+process_batch();
 toc;
+
+function [] = process_batch()
+    % Utility function for processing multiple sources of data
+    % as well as multiple types of ways it's processed
+    %
+    % arguments: None
+    
+    data_srcs = ["2007_esacci/","2008_esacci/"];
+    process_types = ["hysteresis","binfilt","raw"];
+
+    for j = 1:length(data_srcs)
+        for k = 1:length(process_types)        
+            data_src = data_srcs(j);
+            process_type = process_types(k);
+            fprintf("Processing source, process type: %s, %s", data_src, process_type);
+            process_data_main_exec(data_src, process_type);
+            fprintf("\n");
+        end
+    end
+end
 
 function [] = process_data_main_exec(data_src, process_type)
     % Entry point of execution when process_data.m is run
@@ -48,6 +69,9 @@ function [] = process_data_main_exec(data_src, process_type)
     elseif process_type == "binfilt"
         disp("Binarizing and median filtering SIC signal");
         filt_sic = binarize_signal(filt_sic, 0.15);
+        % window size = 5 so that filter includes two neighbors on either
+        % side for stencil
+        % dim = 2 so that filtering is along each row
         filt_sic = filter_signal(filt_sic, 5, 2);
         
     % try using hysteresis
@@ -74,6 +98,7 @@ function [] = process_data_main_exec(data_src, process_type)
     
     % Write all sea ice concentration related matrices to file
     disp(strcat("Writing SIC matrices to file"));
+    save(out_dir+"sic", "sic_mat");
     save(out_dir+"filt_sic", "filt_sic");
     save(out_dir+"sic_std", "sic_std_mat");
     save(out_dir+"sic_mean","sic_mean_mat");
@@ -122,8 +147,8 @@ function [sic_mat] = create_sic_mat(data_dir)
     end
     
     % Interpolate NaN values and set negative values to zero
-    sic_mat = inpaint_nans(sic_mat,0);
-    sic_mat(sic_mat < 0) = 0;
+    %sic_mat = inpaint_nans(sic_mat,0);
+    %sic_mat(sic_mat < 0) = 0;
 end
 
 function [coords] = get_all_coordinates(data_dir)
@@ -143,7 +168,7 @@ function [coords] = get_all_coordinates(data_dir)
 end
 
 function [signal] = filter_signal(signal, window_size, dim)
-    % Get all coordinates
+    % Apply median filter to signal
     %
     % arguments:
     %   signal - 1D matrix representing signal to be filtered
@@ -153,7 +178,11 @@ function [signal] = filter_signal(signal, window_size, dim)
     % return:
     %   signal - 1D matrix representing filtered signal
     
+    % convert to single in case signal is logical array
     signal = single(signal);
+    
+    % 'zeropad' param to consider signal to be zero beyond endpoints when
+    % endpoint filtering
     signal = medfilt1(signal, window_size, [], dim, 'zeropad');
 end
 
@@ -180,8 +209,14 @@ function [signal] = hysteresis_binarize(signal)
     % return:
     %   signal
     
-    ice = 1;
-    % got through every day in the time series signal
+    % set ice state based on SIC on first day
+    if signal(1) > 0.15
+        ice = 1;
+    else
+        ice = 0;
+    end
+    
+    % go through every day in the time series signal
     for day = 1:length(signal)
         % if it's ice, convert to water if SIC < 0.15
         if ice

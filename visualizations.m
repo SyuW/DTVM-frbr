@@ -4,9 +4,8 @@
 
 % Call the execution
 tic;
-visualization_main_exec("2007_esacci/", "binfilt");
-%visualization_main_exec("2007_esacci/", "raw");
-%visualization_main_exec("2007_esacci/", "hysteresis");
+visualization_main_exec("2007_esacci/", "raw");
+%process_batch()
 toc;
 
 function [] = visualization_main_exec(data_src, process_type)
@@ -26,17 +25,17 @@ function [] = visualization_main_exec(data_src, process_type)
     % saved variables: None
     
     % set working directory to generate visualizations inside
-    work_dir = "./out/"+data_src+process_type+"/";
+    work_dir = './out/'+data_src+process_type+'/';
     
     % Create maps of freezeup/breakup dates
-    create_maps_of_frbr_dates(work_dir);
+    %create_maps_of_frbr_dates(work_dir);
     
     %create_landmask(work_dir);
     % Visualize underperforming points within region
     %visualize_region_points(work_dir,"breakup");
     
     % Visualize equally spaced grid points in region
-    %visualize_sampled_points(work_dir, "Foxe_Basin", 0, 1);
+    visualize_sampled_points(work_dir, "Foxe_Basin", 1);
     
     % Create map of optimal window for NRC freezeup/breakup calc
     %create_map_of_optimal_frbr_windows(work_dir);
@@ -127,7 +126,7 @@ function [] = create_maps_of_frbr_dates(work_dir)
     %
     % arguments:
     %   work_dir - path to directory with dtvm outputs
-    %   binfilt - boolean for whether processed/raw data is used
+    %   process_type - boolean for whether processed/raw data is used
     %
     % return: None
     %
@@ -195,26 +194,26 @@ function [] = create_maps_of_frbr_dates(work_dir)
     disp("Done creating freeze-up/breakup maps");
 end
 
-function [] = visualize_sampled_points(work_dir, region_name, histograms, binfilt)
+function [] = visualize_sampled_points(work_dir, region_name, histograms)
     % Create visualizations for regularly spaced points in region
     %
     % arguments:
     %   work_dir - working directory path
     %   region_name - region name string
     %   histograms - boolean for whether histograms should be gen.
-    %   binfilt - whether to use raw or processed data
+    %   process_type - process type
     %
     % return: None
     %
     % loaded variables:
-    %   sic_mats(_binarized_filtered)
+    %   sic_mats
     %       sic_mat
     %       sic_mean_mat
     %       sic_std_mat
-    %   NRC_frbr_dates(_binfilt)
+    %   NRC_frbr_dates
     %       br_days_NRC
     %       fr_days_NRC
-    %   NRC_frbr_indexes(_binfilt)
+    %   NRC_frbr_indexes
     %       BR_index
     %       FR_index
     %
@@ -226,21 +225,18 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms, binfil
     
     sampled_pts = sample_points_from_grid(lon_bounds, lat_bounds, 5);
     
-    if binfilt
-        load(work_dir+"mats/sic_mats_binarized_filtered",...
-                      "sic_mat","sic_mean_mat","sic_std_mat");
-        load(work_dir+"dtvm/DTVM_frbr_dates_binfilt","br_days_DTVM","fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates_binfilt","br_days_NRC","fr_days_NRC");
-        load(work_dir+"dtvm/DTVM_frbr_indexes_binfilt","BR_index","FR_index");
-        save_dir = work_dir+"points/"+region_name+"_binfilt/";
-    else
-        load(work_dir+"mats/sic_mats","sic_mat","sic_mean_mat","sic_std_mat");
-        load(work_dir+"dtvm/DTVM_frbr_dates","br_days_DTVM","fr_days_DTVM");
-        load(work_dir+"dtvm/NRC_frbr_dates","br_days_NRC","fr_days_NRC");
-        load(work_dir+"dtvm/DTVM_frbr_indexes","BR_index","FR_index");
-        save_dir = work_dir+"points/"+region_name+"/";
-    end
+    % load SIC, SIC mean, SIC variability
+    load(work_dir+"mats/sic","sic_mat");
+    load(work_dir+"mats/sic_std","sic_std_mat");
+    load(work_dir+"mats/sic_mean","sic_mean_mat");
+    % load DTVM data
+    load(work_dir+"dtvm/DTVM_frbr_indexes","BR_index","FR_index");
+    load(work_dir+"dtvm/DTVM_frbr_dates","br_days_DTVM","fr_days_DTVM");
+    % load NRC calculated frbr
+    load(work_dir+"dtvm/NRC_frbr_dates","br_days_NRC","fr_days_NRC");
     
+    % define save directory based on region examined
+    save_dir = work_dir+"points/"+region_name+"/";
     if not(isfolder(save_dir))
         mkdir(save_dir);
     end
@@ -256,18 +252,19 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms, binfil
         lon = num2str(location(1));
         lat = num2str(location(2));
         
+        % Create histograms instead of time series visualization
         if histograms
-            % Create histograms instead of time series visualization
+            
+            % slice frbr dates and SIC variability at location's index
             potential_br_dates = BR_index(indx,:);
             potential_fr_dates = FR_index(indx,:);
+            sic_std_at_loc = sic_std_mat(indx,:);
             
-            br_date = br_days_DTVM(indx);
-            fr_date = fr_days_DTVM(indx);
+            %keyboard;
             
-            plot_histogram(work_dir, potential_br_dates, lon, lat,...
-                           br_date, "Breakup");
-            plot_histogram(work_dir, potential_fr_dates, lon, lat,...
-                           fr_date, "Freezeup");
+            create_hist_and_plot(sic_std_at_loc, potential_br_dates,...
+                                                 potential_fr_dates);
+            
             
         else
             % Extracting timeseries, freezeup/breakup dates, coord using
@@ -364,7 +361,8 @@ end
 % --------------------- Plotting functions ------------------------- %
 % ------------------------------------------------------------------ %
 
-function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, location, savename)
+function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
+                                 frbr_days, location, savename)
     % Visualize time-series and freeze-up dates at a location
     %
     % arguments:
@@ -395,8 +393,12 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     xlabel(sic_ax,"Days of year");
     ylabel(sic_ax,"SIC");
     xlim(sic_ax, [0 365]);
-    
-    %a = area(0.15);
+    % create filled area representing threshold of SIC = 0.15
+    a = area(sic_ax,1:length(sic_ts),repmat(0.15,1,length(sic_ts)));
+    a.DisplayName = "Open water zone";
+    a.FaceColor = "c";
+    a.FaceAlpha = 0.1;
+    a.LineStyle = "none";
     
     % SIC mean 
     sic_mean_ax = subplot(3,2,4);
@@ -450,13 +452,13 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts, frbr_days, loc
     clf;
 end
 
-function [] = create_hist_and_plot(sic_std, dates_index, location, savename)
+function [] = create_hist_and_plot(sic_std, br_dates, fr_dates)
     % create histogram + plot of variability signal
     % 
     % arguments:
     %   sic_std - 
     %   dates -
-    %   coords -
+    %   location - lon,lat coordinates of location, for titling
     %   savename -
     %
     % return: None
@@ -464,6 +466,68 @@ function [] = create_hist_and_plot(sic_std, dates_index, location, savename)
     % loaded variables: None
     
     figure("visible","off");
+    
+    br_date_at_loc = quantile(br_dates, 0.75);
+    fr_date_at_loc = quantile(fr_dates, 0.25);
+    
+    % variability plot with potential freezeup/breakup dates
+    sic_ax = subplot(2,1,1);
+    hold(sic_ax,'on');
+    % draw SIC variability line
+    std_line = plot(sic_ax,1:length(sic_std),sic_std);
+    std_line.Color = "blue";
+    std_line.DisplayName = "SIC variability";
+    % draw breakup date
+    sic_ax_br_day = plot(sic_ax,[br_date_at_loc, br_date_at_loc],[0, 1.1]);
+    sic_ax_br_day.Color = "red";
+    sic_ax_br_day.DisplayName = "DTVM Breakup date";
+    % draw freeze-up date
+    sic_ax_fr_day = plot(sic_ax,[fr_date_at_loc, fr_date_at_loc],[0, 1.1]);
+    sic_ax_fr_day.Color = "magenta";
+    sic_ax_fr_day.DisplayName = "DTVM Freeze-up date";
+    % titling, labels, limits
+    sic_title = "SIC variability signal with DTVM flagged freeze-up/breakup";
+    title(sic_ax, sic_title);
+    xlabel(sic_ax, "Day of year");
+    ylabel(sic_ax, "SIC variability");
+    xlim(sic_ax, [1 365]);
+    ylim(sic_ax, [0 1.1]);
+    sic_ax.FontSize = 16;
+    % draw the legend
+    legend(sic_ax,"Location","best");
+    
+    % histogram
+    hist_ax = subplot(2,1,2);
+    hold(hist_ax, "on");
+    % draw breakup date on histogram
+    hist_ax_br_day = plot(hist_ax,[br_date_at_loc, br_date_at_loc],[0, 1.1]);
+    hist_ax_br_day.Color = "red";
+    hist_ax_br_day.DisplayName = "DTVM Breakup date";
+    % draw freezeup date on histogram
+    hist_ax_fr_day = plot(hist_ax,[fr_date_at_loc, fr_date_at_loc],[0, 1.1]);
+    hist_ax_fr_day.Color = "magenta";
+    hist_ax_fr_day.DisplayName = "DTVM Freeze-up date";
+    % plot breakup frequency histogram
+    hist_ax_br_dates = histogram(hist_ax,br_dates,1:length(br_dates));
+    hist_ax_br_dates.DisplayName = "DTVM potential breakup dates";
+    hist_ax_br_dates.Normalization = "Probability";
+    % plot freezeup frequency histogram
+    hist_ax_fr_dates = histogram(hist_ax,fr_dates,1:length(fr_dates));
+    hist_ax_fr_dates.DisplayName = "DTVM potential freezeup dates";
+    hist_ax_fr_dates.Normalization = "Probability";
+    % titling, labels, limits
+    hist_title = "Normalized frequency of DTVM potential freeze-up/breakup dates";
+    title(hist_ax, hist_title);
+    xlabel(hist_ax, "Day of year");
+    ylabel(hist_ax, "Normalized frequency");
+    xlim(hist_ax, [1 365]);
+    ylim(hist_ax, [0 1.1]);
+    hist_ax.FontSize = 16;
+    % draw the legend
+    legend(hist_ax,"Location","best");
+    
+    keyboard;
+    
 end
 
 function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
@@ -501,50 +565,29 @@ function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
     title(plot_title);
 end
 
-function [] = plot_histogram(save_dir, dates_index, lon, lat, flagged_date, day_type_str)
-    % Plot histogram of DTVM potential freezeup/breakup dates
-    %
-    % arguments:
-    %   save_dir - directory path to save at
-    %   dates_index - potential freezeup/breakup dates at location
-    %   lon - longitude of location considered
-    %   lat - latitude of location considered
-    %   flagged_date - special date at which to draw vertical line, usually
-    %   the precise freeze-up/breakup date determined by DTVM
-    %   day_type_str - string desribing whether freezeup/breakup is
-    %   considered
-    %
-    % return: None
-    % saved variables: None
-    % loaded variables: None
-    
-    figure("visible","off");
-
-    histogram(dates_index, 1:365, "Normalization", "probability");
-    hold on;
-    plot(gca,[flagged_date flagged_date],[0 1]);
-    ylim([0 1]);
-
-    fig_title = day_type_str+" histogram"+" at"+" ("+lon+","+lat+")";
-    title(fig_title);
-
-    xlabel("Day of year");
-    ylabel("Normalized frequency");
-
-    padding=10;
-    if ~isnan(dates_index)
-        xlim([min(dates_index)-padding max(dates_index)+padding]);
-    end
-    
-    save_fname = save_dir+"histograms/"+day_type_str+"_histogram_at_"+lon+"_"+lat+".png";
-    saveas(gca, save_fname);
-    
-    clf;
-end
-
 % ------------------------------------------------------------------ %
 % --------------------- Helper functions --------------------------- %
 % ------------------------------------------------------------------ %
+
+function [] = process_batch()
+    % Utility function for processing multiple sources of data
+    % as well as multiple types of ways it's processed
+    %
+    % arguments: None
+    
+    data_srcs = ["2007_esacci/","2008_esacci/"];
+    process_types = ["hysteresis","binfilt","raw"];
+
+    for j = 1:length(data_srcs)
+        for k = 1:length(process_types)        
+            data_src = data_srcs(j);
+            process_type = process_types(k);
+            fprintf("Source: %s, Process type: %s\n", data_src, process_type);
+            visualization_main_exec(data_src, process_type);
+            fprintf("\n");
+        end
+    end
+end
 
 function [indx] = find_closest_coords_index(coords, chosen_coord)
     % Find the index of the closest available coordinate
@@ -625,34 +668,4 @@ function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
     
     % Flatten to 1D array
     points = vertcat(points{:});
-end
-
-function [] = create_landmask(work_dir)
-    % create landmask array
-    %
-    % arguments:
-    %   work_dir - 
-    %   grid_spacing - scalar
-    %
-    % return:
-    %   landmask - 2D logical matrix of 0 - ocean and 1 - land
-    
-    load(work_dir+"mats/coords", "coords");
-    
-    avg_lat_step = mean(diff(coords(:,1)));
-    avg_lon_step = mean(diff(coords(:,2)));
-    
-    lon_min = min(coords(:,1));
-    lon_max = max(coords(:,1));
-    lat_min = min(coords(:,2));
-    lat_max = max(coords(:,2));
-    
-    lon_sample = lon_min:0.2:lon_max;
-    lat_sample = lat_min:0.2:lat_max;
-    
-    [lons, lats] = meshgrid(lat_sample, lon_sample);
-    land = landmask(lats, lons, 'North and South America');
-    
-    keyboard;
-    
 end

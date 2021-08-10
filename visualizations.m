@@ -5,7 +5,7 @@
 % Call the execution
 tic;
 visualization_main_exec("2007_esacci/", "raw");
-%process_batch()
+%visualize_batch()
 toc;
 
 function [] = visualization_main_exec(data_src, process_type)
@@ -35,17 +35,17 @@ function [] = visualization_main_exec(data_src, process_type)
     %visualize_region_points(work_dir,"breakup");
     
     % Visualize equally spaced grid points in region
-    visualize_sampled_points(work_dir, "Foxe_Basin", 1);
+    %visualize_sampled_points(work_dir, "Foxe_Basin", 0);
     
     % Create map of optimal window for NRC freezeup/breakup calc
-    %create_map_of_optimal_frbr_windows(work_dir);
+    create_map_of_optimal_frbr_windows(work_dir);
 end
 
 % ------------------------------------------------------------------ %
 % --------------------- Analysis functions ------------------------- %
 % ------------------------------------------------------------------ %
 
-function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
+function [] = create_map_of_optimal_frbr_windows(work_dir)
     % Create maps of NRC window values that yield NRC freeze-up/breakup
     % dates closest to DTVM calculated dates
     %
@@ -65,60 +65,30 @@ function [] = create_map_of_optimal_frbr_windows(work_dir, binfilt)
     %
     % saved variables: None
     
+    % load coordinates and DTVM frbr data
     load(work_dir + "mats/coords", "coords");
+    load(work_dir + "dtvm/DTVM_frbr_dates","fr_days_DTVM", "br_days_DTVM");
+    load(work_dir + "dtvm/NRC_frbr_cubes","NRC_br_cube", "NRC_fr_cube");
     
-    if binfilt
-        load(work_dir + "dtvm/DTVM_frbr_dates_binfilt",...
-             "fr_days_DTVM", "br_days_DTVM");
-        NRC_varied_frbr_dir =... 
-        dir(work_dir + "dtvm/NRC_frbr_dates_varied_periods_binfilt/*.mat");
-
-    else
-        load(work_dir + "dtvm/DTVM_frbr_dates",...
-             "fr_days_DTVM", "br_days_DTVM");
-        NRC_varied_frbr_dir =... 
-        dir(work_dir + "dtvm/NRC_frbr_dates_varied_periods/*.mat");
-    end
+    % find the index corresponding to the minimal difference from DTVM
+    [~,br_optimal] = min(abs(bsxfun(@minus, NRC_br_cube, br_days_DTVM)));
+    [~,fr_optimal] = min(abs(bsxfun(@minus, NRC_fr_cube, fr_days_DTVM)));
     
-    num_of_locs = size(coords, 1);                      
-                          
-    fr_dates_over_all_periods = nan(length(NRC_varied_frbr_dir),num_of_locs);
-    br_dates_over_all_periods = nan(length(NRC_varied_frbr_dir),num_of_locs);
-    periods_vec = nan(1,length(NRC_varied_frbr_dir));
+    % since window sizes < 5 weren't considered, set those to NaN
+    br_optimal(br_optimal < 5) = nan;
+    fr_optimal(fr_optimal < 5) = nan;
     
-    for ifile = 1:length(NRC_varied_frbr_dir)
-        fname = NRC_varied_frbr_dir(ifile).name;
-        str_cell = split(fname, "_");
-        
-        period = str_cell{end}(1:end-4);
-        periods_vec(ifile) = str2double(period);
-        
-        load(NRC_varied_frbr_dir(ifile).folder+"\"+NRC_varied_frbr_dir(ifile).name,...
-             "fr_days_NRC", "br_days_NRC");
-         
-        fr_dates_over_all_periods(ifile,:) = fr_days_NRC;
-        br_dates_over_all_periods(ifile,:) = br_days_NRC;
-    end
-    
-    optimal_NRC_br_periods_vec = nan(1,num_of_locs);
-    optimal_NRC_fr_periods_vec = nan(1,num_of_locs);
-    
-    for k = 1:num_of_locs
-        fr_diffs = abs(fr_dates_over_all_periods(:,k) - fr_days_DTVM(k));
-        br_diffs = abs(br_dates_over_all_periods(:,k) - br_days_DTVM(k));
-        
-        [~,I_fr] = min(fr_diffs);
-        [~,I_br] = min(br_diffs);
-        
-        optimal_NRC_br_periods_vec(k) = periods_vec(I_br);
-        optimal_NRC_fr_periods_vec(k) = periods_vec(I_fr);
-    end
-    
-    save_dir = work_dir+"maps/Binarized_filtered_maps/";
-    create_frbr_dates_map(save_dir, coords, optimal_NRC_br_periods_vec,...
-                          "Breakup optimal NRC windows", [5 30]);
-    create_frbr_dates_map(save_dir, coords, optimal_NRC_fr_periods_vec,...
-                          "Freezeup optimal NRC windows", [5 30]);
+    % create optimal windows maps
+    br_optimal_map = create_frbr_dates_map(coords, br_optimal,...
+                                           "Breakup optimal NRC windows",...
+                                           [5 30]);
+    fr_optimal_map = create_frbr_dates_map(coords, fr_optimal,...
+                                           "Freezeup optimal NRC windows",...
+                                           [5 30]);
+    % saving
+    save_dir = work_dir+"maps/";
+    saveas(br_optimal_map,save_dir+"Breakup_optimal_NRC_windows_map.png");
+    saveas(fr_optimal_map,save_dir+"Freezeup_optimal_NRC_windows_map.png");
 end
 
 function [] = create_maps_of_frbr_dates(work_dir)
@@ -173,6 +143,7 @@ function [] = create_maps_of_frbr_dates(work_dir)
     DTVM_br_dates_map = create_frbr_dates_map(coords, br_days_DTVM,...
         "DTVM Breakup days",[min(br_days_DTVM)-pad, max(br_days_DTVM)+pad]);
     
+    % color bar limit for plotting frbr differences
     c_abs_lim = 20;
     
     % Breakup differences map
@@ -262,10 +233,11 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms)
             
             %keyboard;
             
-            create_hist_and_plot(sic_std_at_loc, potential_br_dates,...
-                                                 potential_fr_dates);
-            
-            
+            create_hist_and_plot(save_dir, sic_std_at_loc,...
+                                 potential_br_dates, potential_fr_dates,...
+                                 location);
+        
+        % Create time-series visualization
         else
             % Extracting timeseries, freezeup/breakup dates, coord using
             % index
@@ -452,7 +424,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     clf;
 end
 
-function [] = create_hist_and_plot(sic_std, br_dates, fr_dates)
+function [] = create_hist_and_plot(save_dir, sic_std, br_dates, fr_dates, location)
     % create histogram + plot of variability signal
     % 
     % arguments:
@@ -465,7 +437,7 @@ function [] = create_hist_and_plot(sic_std, br_dates, fr_dates)
     % saved variables: None
     % loaded variables: None
     
-    figure("visible","off");
+    fig = figure("visible","off");
     
     br_date_at_loc = quantile(br_dates, 0.75);
     fr_date_at_loc = quantile(fr_dates, 0.25);
@@ -492,7 +464,6 @@ function [] = create_hist_and_plot(sic_std, br_dates, fr_dates)
     ylabel(sic_ax, "SIC variability");
     xlim(sic_ax, [1 365]);
     ylim(sic_ax, [0 1.1]);
-    sic_ax.FontSize = 16;
     % draw the legend
     legend(sic_ax,"Location","best");
     
@@ -522,12 +493,15 @@ function [] = create_hist_and_plot(sic_std, br_dates, fr_dates)
     ylabel(hist_ax, "Normalized frequency");
     xlim(hist_ax, [1 365]);
     ylim(hist_ax, [0 1.1]);
-    hist_ax.FontSize = 16;
     % draw the legend
     legend(hist_ax,"Location","best");
     
-    keyboard;
-    
+    % finally, save the visualization
+    location_str = strjoin(string(location),"_");
+    savename = save_dir + "histogram_at_" + location_str + ".png";
+    saveas(fig, savename);
+   
+    clf;
 end
 
 function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
@@ -569,9 +543,9 @@ end
 % --------------------- Helper functions --------------------------- %
 % ------------------------------------------------------------------ %
 
-function [] = process_batch()
-    % Utility function for processing multiple sources of data
-    % as well as multiple types of ways it's processed
+function [] = visualize_batch()
+    % Utility function for visualizing multiple sources of data
+    % and multiple processing methods
     %
     % arguments: None
     

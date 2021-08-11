@@ -6,8 +6,8 @@
 % Important - choose the data source you want to apply DTVM for
 % Options: 2007_esacci/, 2008_esacci/, 2009_esacci/, 2010_esacci/
 tic;
-DTVM_main_exec("2007_esacci/", "raw");
-%process_batch()
+%DTVM_main_exec("2007_esacci/", "raw");
+process_batch()
 toc;
 
 function [] = process_batch()
@@ -25,6 +25,7 @@ function [] = process_batch()
             process_type = process_types(k);
             fprintf("Source: %s, Process type: %s\n", data_src, process_type);
             DTVM_main_exec(data_src, process_type);
+            fprintf("Done freezeup/breakup calculation\n");
         end
     end
 end
@@ -65,21 +66,19 @@ function [] = DTVM_main_exec(data_src, process_type)
         mkdir(out_dir);
     end
     
+    % load SIC matrix and also filtered SIC matrix
     load(mats_dir+"sic", "sic_mat");
     load(mats_dir+"filt_sic", "filt_sic");
 
     % create NRC + DTVM frbr dates -- this is the standard function
-    %period = 10;
-    %create_NRC_DTVM_frbr(out_dir, sic_mat, filt_sic, period);
+    period = 15;
+    create_NRC_DTVM_frbr(out_dir, sic_mat, filt_sic, period);
     
     % create NRC frbr dates for varying periods
     disp("Starting NRC freeze-up/breakup gen. for window range");
     window_range = 5:30;
-    create_NRC_frbr_for_window_range(out_dir, filt_sic, window_range);
+    create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range);
     disp("Done generating NRC freeze-up/breakup data for window range");
-    
-    fprintf("Done freeze-up/breakup calculation for process_type: %s\n", process_type);
-    fprintf("\n");
 end
 
 % ----------------------------------------------------------------------- %
@@ -101,13 +100,13 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic, filt_sic, period)
     % loaded variables: None
     %
     % saved variables:
-    %   NRC_frbr_dates(_binfilt)
+    %   NRC_frbr_dates
     %       br_days_NRC - vector of NRC breakup days
     %       fr_days_NRC - vector of NRC freezeup days
-    %   DTVM_frbr_dates(_binfilt)
+    %   DTVM_frbr_dates
     %       br_days_DTVM - vector of DTVM breakup days
     %       fr_days_DTVM - vector of DTVM freezeup days
-    %   DTVM_frbr_indexes(_binfilt)
+    %   DTVM_frbr_indexes
     %       BR_index - 2D matrix of potential breakup days per location
     %       FR_index - 2D matrix of potential freezeup days per location
     
@@ -115,8 +114,8 @@ function [] = create_NRC_DTVM_frbr(out_dir, sic, filt_sic, period)
     num_of_thresholds = 500;
     
     % Calculate NRC freezeup/breakup dates vector
-    fr_days_NRC = NRC_freezeup_breakup(filt_sic, "Freeze-up", period);
-    br_days_NRC = NRC_freezeup_breakup(filt_sic, "Breakup", period);
+    fr_days_NRC = NRC_freezeup_breakup(sic, "Freeze-up", period);
+    br_days_NRC = NRC_freezeup_breakup(sic, "Breakup", period);
     
     disp("Done creating NRC freeze-up/breakup dates");
     
@@ -146,9 +145,10 @@ function [] = create_NRC_frbr_for_window_range(out_dir, sic_mat, window_range)
     % loaded variables: None
     %
     % saved variables:
-    %   NRC_frbr_p_{window}:
-    %       fr_days_NRC - NRC freeze-up dates for {window} value
-    %       br_days_NRC - NRC breakup dates for {window} value
+    %   NRC_frbr_cubes
+    %       NRC_br_cube
+    %       NRC_fr_cube
+    %
     
     start_period = window_range(1);
     end_period = window_range(end);

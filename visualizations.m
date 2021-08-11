@@ -4,9 +4,29 @@
 
 % Call the execution
 tic;
-visualization_main_exec("2007_esacci/", "raw");
-%visualize_batch()
+%visualization_main_exec("2007_esacci/", "raw");
+visualize_batch()
 toc;
+
+function [] = visualize_batch()
+    % Utility function for visualizing multiple sources of data
+    % and multiple processing methods
+    %
+    % arguments: None
+    
+    data_srcs = ["2007_esacci/","2008_esacci/"];
+    process_types = ["hysteresis","binfilt","raw"];
+
+    for j = 1:length(data_srcs)
+        for k = 1:length(process_types)       
+            data_src = data_srcs(j);
+            process_type = process_types(k);
+            fprintf("Source: %s, Process type: %s\n", data_src, process_type);
+            visualization_main_exec(data_src, process_type);
+            fprintf("Done visualization\n");
+        end
+    end
+end
 
 function [] = visualization_main_exec(data_src, process_type)
     % Entry point of execution of DTVM method
@@ -28,17 +48,18 @@ function [] = visualization_main_exec(data_src, process_type)
     work_dir = './out/'+data_src+process_type+'/';
     
     % Create maps of freezeup/breakup dates
-    %create_maps_of_frbr_dates(work_dir);
-    
-    %create_landmask(work_dir);
-    % Visualize underperforming points within region
-    %visualize_region_points(work_dir,"breakup");
+    disp("Creating freeze-up/breakup maps");
+    create_maps_of_frbr_dates(work_dir);
+    disp("Done creating freeze-up/breakup maps");
     
     % Visualize equally spaced grid points in region
-    %visualize_sampled_points(work_dir, "Foxe_Basin", 0);
+    region = "Foxe_Basin";
+    fprintf("Visualizing sampled points in %s\n", region);
+    visualize_sampled_points(work_dir, "Foxe_Basin", 0);
+    visualize_sampled_points(work_dir, "Foxe_Basin", 1);
     
     % Create map of optimal window for NRC freezeup/breakup calc
-    create_map_of_optimal_frbr_windows(work_dir);
+    %create_map_of_optimal_frbr_windows(work_dir);
 end
 
 % ------------------------------------------------------------------ %
@@ -51,17 +72,14 @@ function [] = create_map_of_optimal_frbr_windows(work_dir)
     %
     % arguments:
     %   work_dir -  
-    %   binfilt -
     %
     % return: None
     %
     % loaded variables:
-    %   DTVM_frbr_dates(_binfilt)
+    %   DTVM_frbr_dates
     %       fr_days_DTVM - vector of DTVM freeze-up dates
     %       br_days_DTVM - vector of DTVM breakup dates
     %   NRC_frbr_p_{window}
-    %       fr_days_NRC - vector of NRC freeze-up dates for {window}
-    %       br_days_NRC - vector of NRC breakup dates for {window}
     %
     % saved variables: None
     
@@ -73,6 +91,8 @@ function [] = create_map_of_optimal_frbr_windows(work_dir)
     % find the index corresponding to the minimal difference from DTVM
     [~,br_optimal] = min(abs(bsxfun(@minus, NRC_br_cube, br_days_DTVM)));
     [~,fr_optimal] = min(abs(bsxfun(@minus, NRC_fr_cube, fr_days_DTVM)));
+    
+    keyboard;
     
     % since window sizes < 5 weren't considered, set those to NaN
     br_optimal(br_optimal < 5) = nan;
@@ -161,12 +181,11 @@ function [] = create_maps_of_frbr_dates(work_dir)
     saveas(DTVM_br_dates_map,save_dir+"DTVM_breakup_dates.png");
     saveas(br_diffs_map,save_dir+"Breakup_differences.png");
     saveas(fr_diffs_map,save_dir+"Freezeup_difference.png");
-                 
-    disp("Done creating freeze-up/breakup maps");
+              
 end
 
 function [] = visualize_sampled_points(work_dir, region_name, histograms)
-    % Create visualizations for regularly spaced points in region
+    % Create visualizations for grid points in region
     %
     % arguments:
     %   work_dir - working directory path
@@ -194,6 +213,7 @@ function [] = visualize_sampled_points(work_dir, region_name, histograms)
     
     [lon_bounds, lat_bounds] = get_region_bounds(region_name);
     
+    % sample coordinates in region at grid points
     sampled_pts = sample_points_from_grid(lon_bounds, lat_bounds, 5);
     
     % load SIC, SIC mean, SIC variability
@@ -543,26 +563,6 @@ end
 % --------------------- Helper functions --------------------------- %
 % ------------------------------------------------------------------ %
 
-function [] = visualize_batch()
-    % Utility function for visualizing multiple sources of data
-    % and multiple processing methods
-    %
-    % arguments: None
-    
-    data_srcs = ["2007_esacci/","2008_esacci/"];
-    process_types = ["hysteresis","binfilt","raw"];
-
-    for j = 1:length(data_srcs)
-        for k = 1:length(process_types)        
-            data_src = data_srcs(j);
-            process_type = process_types(k);
-            fprintf("Source: %s, Process type: %s\n", data_src, process_type);
-            visualization_main_exec(data_src, process_type);
-            fprintf("\n");
-        end
-    end
-end
-
 function [indx] = find_closest_coords_index(coords, chosen_coord)
     % Find the index of the closest available coordinate
     % arguments:
@@ -582,6 +582,7 @@ end
 
 function [lon_bounds, lat_bounds] = get_region_bounds(name)
     % Converts region name string to set of longitude/latitude bounds
+    %
     % arguments:
     %   name - string representing region name
     %   
@@ -612,7 +613,7 @@ function [lon_bounds, lat_bounds] = get_region_bounds(name)
 end
 
 function [points] = sample_points_from_grid(lon_bounds, lat_bounds, grid_res)
-    % Sample coordinates from region at regularly spaced points
+    % Sample coordinates from region at grid points
     %
     % arguments:
     %   lon_bounds - vector of longitude bounds of the region

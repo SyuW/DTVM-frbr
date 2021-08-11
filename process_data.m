@@ -20,7 +20,7 @@ function [] = process_batch()
         for k = 1:length(process_types)        
             data_src = data_srcs(j);
             process_type = process_types(k);
-            fprintf("Processing source, process type: %s, %s", data_src, process_type);
+            fprintf("Processing source, process type: %s, %s\n", data_src, process_type);
             process_data_main_exec(data_src, process_type);
             fprintf("\n");
         end
@@ -28,7 +28,7 @@ function [] = process_batch()
 end
 
 function [] = process_data_main_exec(data_src, process_type)
-    % Entry point of execution when process_data.m is run
+    % Main entry point of execution
     %
     % arguments:
     %   data_src - string describing which data source to use
@@ -55,8 +55,12 @@ function [] = process_data_main_exec(data_src, process_type)
     % Create sea ice concentration matrix
     sic_mat = create_sic_mat(data_dir);
     disp("Done constructing initial SIC matrix from data files");
-    disp("Writing initial SIC matrix to file")
-    save(out_dir+"sic","sic_mat");
+    
+    % Calculate moving mean/standard deviation of signal
+    calc_window = 5;
+    sic_mean_mat = movmean(sic_mat, [calc_window-1, 0], 2, "omitnan");
+    sic_std_mat = movstd(sic_mat, [calc_window-1, 0], 0, 2, "omitnan");
+    disp("Done calculating moving mean/std deviation of signal");
     
     % create second array for filtering
     filt_sic = sic_mat(:,:);
@@ -69,8 +73,8 @@ function [] = process_data_main_exec(data_src, process_type)
     elseif process_type == "binfilt"
         disp("Binarizing and median filtering SIC signal");
         filt_sic = binarize_signal(filt_sic, 0.15);
-        % window size = 5 so that filter includes two neighbors on either
-        % side for stencil
+        % window size = 5 so that filter includes two neighboring points on
+        % either side of five-point stencil
         % dim = 2 so that filtering is along each row
         filt_sic = filter_signal(filt_sic, 5, 2);
         
@@ -90,18 +94,12 @@ function [] = process_data_main_exec(data_src, process_type)
     
     disp("Done filtering");
     
-    % Calculate moving mean/standard deviation of signal
-    calc_window = 5;
-    sic_mean_mat = movmean(filt_sic, [calc_window-1, 0], 2);
-    sic_std_mat = movstd(filt_sic, [calc_window-1, 0], 0, 2);
-    disp("Done calculating moving mean/std deviation of signal");
-    
     % Write all sea ice concentration related matrices to file
     disp(strcat("Writing SIC matrices to file"));
     save(out_dir+"sic", "sic_mat");
-    save(out_dir+"filt_sic", "filt_sic");
     save(out_dir+"sic_std", "sic_std_mat");
     save(out_dir+"sic_mean","sic_mean_mat");
+    save(out_dir+"filt_sic", "filt_sic");
     
     % Get coordinate locations of all points
     coords = get_all_coordinates(data_dir);
@@ -145,10 +143,6 @@ function [sic_mat] = create_sic_mat(data_dir)
         
         sic_mat(:,doy)=current_day_sic;
     end
-    
-    % Interpolate NaN values and set negative values to zero
-    %sic_mat = inpaint_nans(sic_mat,0);
-    %sic_mat(sic_mat < 0) = 0;
 end
 
 function [coords] = get_all_coordinates(data_dir)

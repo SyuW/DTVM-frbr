@@ -4,6 +4,7 @@
 
 % Call the execution
 tic;
+close all;
 %visualization_main_exec("2007_esacci/", "raw");
 visualize_batch()
 toc;
@@ -48,9 +49,12 @@ function [] = visualization_main_exec(data_src, process_type)
     work_dir = './out/'+data_src+process_type+'/';
     
     % Create maps of freezeup/breakup dates
-    disp("Creating freeze-up/breakup maps");
-    create_maps_of_frbr_dates(work_dir, process_type);
-    disp("Done creating freeze-up/breakup maps");
+    %disp("Creating freeze-up/breakup maps");
+    %create_maps_of_frbr_dates(work_dir, process_type);
+    %disp("Done creating freeze-up/breakup maps");
+    
+    % Create pointwise visualizations over regions
+    visualize_batch_points(work_dir, process_type)
     
     % Create map of optimal window for NRC freezeup/breakup calc
     %create_map_of_optimal_frbr_windows(work_dir);
@@ -139,8 +143,11 @@ function [] = create_maps_of_frbr_dates(work_dir, process_type)
         mkdir(save_dir);
     end
     
-    % padding value
-    pad = 2;
+    % Breakup season range
+    br_range = [60 258];
+    
+    % Freeze-up season range
+    fr_range = [259 365];
     
     % map from region to corresponding string
     process_dict = containers.Map(["hysteresis","binfilt","raw"],...
@@ -150,19 +157,19 @@ function [] = create_maps_of_frbr_dates(work_dir, process_type)
     % NRC freeze-up dates map
     NRC_fr_dates_map = create_frbr_dates_map(coords, fr_days_NRC,... 
         "NRC Freeze-up dates - "+process_string,...
-        [min(fr_days_NRC)-pad, max(fr_days_NRC)+pad]);
+        fr_range);
     
     % NRC breakup dates map
     NRC_br_dates_map = create_frbr_dates_map(coords, br_days_NRC,... 
-        "NRC Breakup dates - "+process_string,[min(br_days_NRC)-pad, max(br_days_NRC)+pad]);
+        "NRC Breakup dates - "+process_string, br_range);
     
     % DTVM freeze-up dates map                   
     DTVM_fr_dates_map = create_frbr_dates_map(coords, fr_days_DTVM,...
-        "DTVM Freeze-up days - "+process_string,[min(fr_days_DTVM)-pad, max(fr_days_DTVM)+pad]);
+        "DTVM Freeze-up days - "+process_string, fr_range);
     
     % DTVM breakup dates map
     DTVM_br_dates_map = create_frbr_dates_map(coords, br_days_DTVM,...
-        "DTVM Breakup days - "+process_string,[min(br_days_DTVM)-pad, max(br_days_DTVM)+pad]);
+        "DTVM Breakup days - "+process_string, br_range);
     
     % color bar limit for plotting frbr differences
     c_abs_lim = 20;
@@ -182,7 +189,8 @@ function [] = create_maps_of_frbr_dates(work_dir, process_type)
     saveas(DTVM_br_dates_map,save_dir+"DTVM_breakup_dates.png");
     saveas(br_diffs_map,save_dir+"Breakup_differences.png");
     saveas(fr_diffs_map,save_dir+"Freezeup_difference.png");
-              
+    
+    close all;
 end
 
 function [] = visualize_sampled_points(work_dir, region_name,...
@@ -372,6 +380,7 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     %   sic_std_ts - vector describing time series of std SIC values
     %   frbr_days - vector of DTVM/NRC freezeup/breakup days at loc.
     %   location - vector describing the location
+    %   process_string -
     %   savename - save name of the plot file
     %
     % return: None
@@ -381,7 +390,10 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     lon = location(1);
     lat = location(2);
     
-    figure("visible","off");
+    % Create new figure if one doesn't already exist
+    if ~ishghandle(1)
+        figure("visible","off");
+    end
                        
     % SIC  
     sic_ax = subplot(3,2,2);
@@ -447,9 +459,11 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     % Title the whole visualization
     lon = num2str(lon);
     lat = num2str(lat);
-    title("SIC at ("+lon+","+lat+") - "+process_string);
+    title(map_ax, "SIC at ("+lon+","+lat+")");
+    %subtitle(process_string)
     
     saveas(map_ax, savename);
+    
     clf;
 end
 
@@ -468,10 +482,13 @@ function [] = create_hist_and_plot(save_dir, sic_std, br_dates, fr_dates,...
     % saved variables: None
     % loaded variables: None
     
-    fig = figure("visible","off");
+    % Create a figure if one doesn't already exist
+    if ~ishghandle(1)
+        figure("visible","off");
+    end
     
-    NRC_br = NRC_frbr_vec(0);
-    NRC_fr = NRC_frbr_vec(1);
+    NRC_br = NRC_frbr_vec(1);
+    NRC_fr = NRC_frbr_vec(2);
     
     br_date_at_loc = quantile(br_dates, 0.75);
     fr_date_at_loc = quantile(fr_dates, 0.25);
@@ -494,9 +511,9 @@ function [] = create_hist_and_plot(save_dir, sic_std, br_dates, fr_dates,...
     sic_ax_fr_day = plot(sic_ax,[fr_date_at_loc, fr_date_at_loc],[0, 1.1]);
     sic_ax_fr_day.Color = "magenta";
     sic_ax_fr_day.DisplayName = "DTVM Freeze-up date";
-    hist_ax_NRC_fr_day = plot(sic_ax, [NRC_fr, NRC_fr], [0, 1.1]);
-    hist_ax_NRC_fr_day.Color = "black";
-    hist_ax_NRC_fr_day.DisplayName = "NRC Freeze-up date";
+    sic_ax_NRC_fr_day = plot(sic_ax, [NRC_fr, NRC_fr], [0, 1.1]);
+    sic_ax_NRC_fr_day.Color = "black";
+    sic_ax_NRC_fr_day.DisplayName = "NRC Freeze-up date";
     % titling, labels, limits
     sic_title = "SIC variability signal with DTVM flagged freeze-up/breakup";
     title(sic_ax, sic_title);
@@ -514,18 +531,10 @@ function [] = create_hist_and_plot(save_dir, sic_std, br_dates, fr_dates,...
     hist_ax_br_day = plot(hist_ax,[br_date_at_loc, br_date_at_loc],[0, 1.1]);
     hist_ax_br_day.Color = "red";
     hist_ax_br_day.DisplayName = "DTVM Breakup date";
-    % draw NRC breakup date on histogram
-    hist_ax_NRC_br_day = plot(sic_ax, [NRC_br, NRC_br], [0, 1.1]);
-    hist_ax_NRC_br_day.Color = "green";
-    hist_ax_NRC_br_day.DisplayName = "NRC Breakup date";
     % draw DTVM freezeup date on histogram
     hist_ax_fr_day = plot(hist_ax,[fr_date_at_loc, fr_date_at_loc],[0, 1.1]);
     hist_ax_fr_day.Color = "magenta";
     hist_ax_fr_day.DisplayName = "DTVM Freeze-up date";
-    % draw NRC freezeup date on histogram
-    hist_ax_NRC_fr_day = plot(sic_ax, [NRC_fr, NRC_fr], [0, 1.1]);
-    hist_ax_NRC_fr_day.Color = "black";
-    hist_ax_NRC_fr_day.DisplayName = "NRC Freeze-up date";
     % plot breakup frequency histogram
     hist_ax_br_dates = histogram(hist_ax,br_dates,1:length(br_dates));
     hist_ax_br_dates.DisplayName = "DTVM potential breakup dates";
@@ -566,8 +575,11 @@ function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
     % saved variables: None
     % loaded variables: None
     
-    fig = figure("visible","off");
-
+    figure("visible","off");
+    
+    % turn hold off for geoscatter
+    hold off;
+    
     lons = coords(:,1);
     lats = coords(:,2);
     
@@ -578,13 +590,21 @@ function [fig] = create_frbr_dates_map(coords, dates, plot_title, color_lims)
         marker_size = 10;
     end
     
+    % scatter freeze-up/breakup dates onto map
     geoscatter(lats,lons,marker_size,dates,"filled");
     geobasemap colorterrain;
     
+    % create colorbar and set limits
     colorbar;
     caxis(color_lims);
-        
+    
+    % title the map
     title(plot_title);
+    
+    % get figure handle so that it can be returned
+    figHandles = get(groot, "Children");
+    fig = figHandles(1);
+   
 end
 
 % ------------------------------------------------------------------ %
@@ -612,7 +632,7 @@ function [] = visualize_batch_points(work_dir, process_type)
        region = region_names(n);
        fprintf("Visualizing sampled points in %s\n", region);
        visualize_sampled_points(work_dir, region, 0, process_type);
-       visualize_sampled_points(work_dir, region, 1, process_type);
+       %visualize_sampled_points(work_dir, region, 1, process_type);
     end
     
 end

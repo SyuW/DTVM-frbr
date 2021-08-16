@@ -25,7 +25,7 @@ function [] = process_batch()
             process_type = process_types(k);
             fprintf("Source: %s, Process type: %s\n", data_src, process_type);
             DTVM_main_exec(data_src, process_type);
-            fprintf("Done freezeup/breakup calculation\n");
+            fprintf("Done freezeup/breakup calculation\n\n");
         end
     end
 end

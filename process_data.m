@@ -124,11 +124,24 @@ function [sic_mat] = create_sic_mat(data_dir)
     % Create listing of files inside data folder
     dir_sic = dir(data_dir+"*sic*");
     
-    % Get number of locations
-    num_of_locations = size(load(data_dir+dir_sic(1).name),1);
+    % Get number of locations and year
+    first_fname = dir_sic(1).name;
+    num_of_locations = size(load(data_dir+first_fname),1);
+    year = str2double(first_fname(15:18));
+    
+    % use year to determine number of days
+    division_by_four = mod(year, 4);
+    if division_by_four == 0
+        total_num_of_days = 366;
+    else
+        total_num_of_days = 365;
+    end
+    
+    % days of year vector
+    doy_vec = 1:total_num_of_days;
     
     % prellocating SIC matrix
-    sic_mat = nan(num_of_locations, 365);
+    sic_mat = nan(num_of_locations, total_num_of_days);
     
     % Iterate over files to enter SIC values into matrix
     for ifile=1:length(dir_sic)
@@ -141,8 +154,21 @@ function [sic_mat] = create_sic_mat(data_dir)
         tmpdata=load(data_dir+fname);
         current_day_sic=tmpdata(:,3);
         
-        sic_mat(:,doy)=current_day_sic;
+        % fill matrix column with SIC data for day
+        sic_mat(:,doy) = current_day_sic;
     end
+    
+    % Linearly interpolate
+    for row=1:size(sic_mat,1)
+        current_day_sic = sic_mat(row,:);
+        
+        doy_vec_i = doy_vec(~isnan(current_day_sic));
+        current_day_sic_i = current_day_sic(~isnan(current_day_sic));
+        
+        % replace with interpolated SIC signal at location
+        sic_mat(row,:) = interp1(doy_vec_i, current_day_sic_i, doy_vec);
+    end
+ 
 end
 
 function [coords] = get_all_coordinates(data_dir)

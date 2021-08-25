@@ -16,7 +16,7 @@ function [] = process_batch()
     %
     % arguments: None
     
-    data_srcs = ["2007_esacci/","2008_esacci/"];
+    data_srcs = ["2009_esacci/", "2010_esacci/"];
     process_types = ["hysteresis","binfilt","raw"];
 
     for j = 1:length(data_srcs)

@@ -371,7 +371,7 @@ end
 % ------------------------------------------------------------------ %
 
 function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
-                                 frbr_days, location, process_string, savename)
+                                 frbr_days, location, savename)
     % Visualize time-series and freeze-up dates at a location
     %
     % arguments:
@@ -380,7 +380,6 @@ function [] = visualize_location(sic_ts, sic_mean_ts, sic_std_ts,...
     %   sic_std_ts - vector describing time series of std SIC values
     %   frbr_days - vector of DTVM/NRC freezeup/breakup days at loc.
     %   location - vector describing the location
-    %   process_string -
     %   savename - save name of the plot file
     %
     % return: None

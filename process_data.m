@@ -3,7 +3,6 @@
 % ----------------------------------------------------------- %
 
 tic;
-%process_data_main_exec("2007_esacci/", "binfilt");
 process_batch();
 toc;
 
@@ -13,8 +12,8 @@ function [] = process_batch()
     %
     % arguments: None
     
-    data_srcs = ["2007_esacci/","2008_esacci/"];
-    process_types = ["hysteresis","binfilt","raw"];
+    data_srcs = ["2007_esacci","2008_esacci","2009_esacci","2010_esacci/"];
+    process_types = ["binfilt","raw"];
 
     for j = 1:length(data_srcs)
         for k = 1:length(process_types)        
@@ -120,7 +119,7 @@ function [sic_mat] = create_sic_mat(data_dir)
     %
     % return:
     %   sic_mat - 2D matrix of shape [num_of_locations 365]
-
+    
     % Create listing of files inside data folder
     dir_sic = dir(data_dir+"*sic*");
     
@@ -224,10 +223,10 @@ function [signal] = hysteresis_binarize(signal)
     % Experimenting with hysteresis behavior
     % 
     % arguments:
-    %   signal
+    %   signal - vector representing signal to apply hysteresis to
     %
     % return:
-    %   signal
+    %   signal - vector representing 'hysteresized' signal
     
     % set ice state based on SIC on first day
     if signal(1) > 0.15
